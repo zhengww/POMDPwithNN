@@ -1,0 +1,14 @@
+
+*.xml
+*.iml
+*.xml
+*.ipynb
+.idea/misc.xml
+*.pkl
+*.pyc
+*.xml
+*.xml
+PF.py
+rnn_text.py
+.idea/misc.xml
+rnn_text.py
