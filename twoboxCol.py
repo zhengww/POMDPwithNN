@@ -10,8 +10,8 @@ g0 = 1    # g0 = go to location 0
 g1 = 2    # g1 = go toward box 1 (via location 0 if from 2)
 g2 = 3    # g2 = go toward box 2 (via location 0 if from 1)
 pb = 4    # pb  = push button
-sigmaTb = 0.1  #0.1    # variance for the gaussian approximation in belief transition matrix
-temperatureQ = 0.1  #(0.1 for Neda, others usually 0.2) #0.2  # temperature for soft policy based on Q value
+#sigmaTb = 0.1  #0.1    # variance for the gaussian approximation in belief transition matrix
+#temperatureQ = 0.03  #(0.1 for Neda, others usually 0.2) #0.2  # temperature for soft policy based on Q value
 
 class twoboxColMDP:
     def __init__(self, discount, nq, nr, na, nl, parameters):
@@ -74,6 +74,8 @@ class twoboxColMDP:
         qmin = self.parameters[8]
         qmax = self.parameters[9]
 
+
+
         # initialize probability distribution over states (belief and world)
         pr0 = np.array([1, 0])  # (r=0, r=1) initially no food in mouth p(R=0)=1.
         pl0 = np.array([1, 0, 0])  # (l=0, l=1, l=2) initial location is at L=0
@@ -90,7 +92,8 @@ class twoboxColMDP:
         # Tb2 = beliefTransitionMatrix(gamma2, epsilon2, nq, eta)
         #Tb1 = beliefTransitionMatrixGaussian(gamma1, epsilon1, self.nq, sigmaTb)
         #Tb2 = beliefTransitionMatrixGaussian(gamma2, epsilon2, self.nq, sigmaTb)
-        self.Trans_belief_obs1, self.Obs_emis_trans1, self.den1 = beliefTransitionMatrixGaussianCol(gamma1, epsilon1, qmin,                                                                                           qmax, Ncol, self.nq)
+        self.Trans_belief_obs1, self.Obs_emis_trans1, self.den1 = beliefTransitionMatrixGaussianCol(gamma1, epsilon1, qmin, qmax, Ncol, self.nq, sigma = 1 / self.nq / 3)
+
         #self.Trans_hybrid_obs1 = np.zeros(((NumCol, self.n, self.n)))
         #for i in range(NumCol):
         #    self.Trans_hybrid_obs1[i] = kronn(Tr, self.Trans_belief_obs1[i]).T
@@ -98,7 +101,7 @@ class twoboxColMDP:
         Tb1 = Trans_belief1 / np.tile(np.sum(Trans_belief1, 0), (self.nq, 1))
 
 
-        self.Trans_belief_obs2, self.Obs_emis_trans2, self.den2 = beliefTransitionMatrixGaussianCol(gamma2, epsilon2, qmin,                                                                                                qmax, Ncol, self.nq)
+        self.Trans_belief_obs2, self.Obs_emis_trans2, self.den2 = beliefTransitionMatrixGaussianCol(gamma2, epsilon2, qmin, qmax, Ncol, self.nq, sigma = 1 / self.nq / 3)
         #self.Trans_hybrid_obs2 = np.zeros(((NumCol, self.n, self.n)))
         #for i in range(NumCol):
         #    self.Trans_hybrid_obs2[i] = kronn(Tr, self.Trans_belief_obs2[i]).T
@@ -170,6 +173,7 @@ class twoboxColMDP:
 
     def solveMDP_sfm(self, epsilon = 0.001, niterations = 10000, initial_value=0):
 
+        temperatureQ = self.parameters[10]
         vi = ValueIteration_sfmZW(self.ThA, self.R, self.discount, epsilon, niterations, initial_value)
         vi.run(temperatureQ)
         self.Qsfm = self._QfromV(vi)   # shape na * number of state, use value to calculate Q value

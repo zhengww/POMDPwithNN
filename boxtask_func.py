@@ -72,7 +72,7 @@ def beliefTransitionMatrixGaussian(p_appear, p_disappear, nq, sigma = 0.1):
 
     return Tb
 
-def beliefTransitionMatrixGaussianCol(p_appear, p_disappear, qmin, qmax, Ncol, nq):
+def beliefTransitionMatrixGaussianCol(p_appear, p_disappear, qmin, qmax, Ncol, nq, sigma):
     def gb(x, k1, k0, p_appear, p_disappear):
         a = 1 - p_disappear - p_appear
         return (k1 * a * x + k1 * p_appear) / ((k1 - k0) * a * x + k1 * p_appear + k0 * (1 - p_appear))
@@ -126,7 +126,7 @@ def beliefTransitionMatrixGaussianCol(p_appear, p_disappear, qmin, qmax, Ncol, n
                     return sqrt((q - x) ** 2 + (qq - gb(x, k1, k0, p_appear, p_disappear)) ** 2)
 
                 xopt[n, j, i], d[n, j, i] = optimize.fminbound(dist, 0, 1, full_output=1)[0:2]
-                den[n, j, i] = norm.pdf(d[n, j, i], mu, 1 / nq / 3)   # use this to approximate delta function with diffusion
+                den[n, j, i] = norm.pdf(d[n, j, i], mu, sigma)   # use this to approximate delta function with diffusion
 
                 height[n, j, i] = Obs_emis[n, :].dot(Trans_state).dot(np.array([1 - xopt[n, j, i], xopt[n, j, i]]))
 
