@@ -208,6 +208,10 @@ class twoboxColMDPdata(twoboxColMDP):
         self.color1 = np.zeros((self.sampleNum, self.sampleTime), dtype=int)
         self.color2 = np.zeros((self.sampleNum, self.sampleTime), dtype=int)
 
+        self.actionDist = np.zeros((self.sampleNum, self.sampleTime, self.na))
+        self.belief1Dist = np.zeros((self.sampleNum, self.sampleTime, self.nq))
+        self.belief2Dist = np.zeros((self.sampleNum, self.sampleTime, self.nq))
+
         self.setupMDP()
         self.solveMDP_op()
         self.solveMDP_sfm()
@@ -470,6 +474,12 @@ class twoboxColMDPdata(twoboxColMDP):
                     self.hybrid[n, t] = self.location[n, t] * (self.nq * self.nr * self.nq) + self.belief1[n, t] * (self.nr * self.nq) + \
                                         self.reward[n, t] * self.nq + self.belief2[n, t]  # hybrid state, for policy choosing
                     self.action[n, t] = self._chooseAction(self.softpolicy.T[self.hybrid[n, t]])
+
+                    self.actionDist[n, t] = self.softpolicy.T[self.hybrid[n, t]]
+                    self.belief1Dist[n, t, self.belief1[n, t]] = 1
+                    self.belief2Dist[n, t, self.belief2[n, t]] = 1
+
+
                 else:
                     if self.action[n, t - 1] == pb and self.location[n, t - 1] == 0:
                         self.action[n, t - 1] = a0  # cannot press button at location 0
@@ -497,6 +507,9 @@ class twoboxColMDPdata(twoboxColMDP):
 
                         self.belief2[n, t] = np.argmax(
                             np.random.multinomial(1, self.den2[self.color2[n, t], :, self.belief2[n, t - 1]], size=1))
+
+                        self.belief1Dist[n, t] = self.den1[self.color1[n, t], :, self.belief1[n, t - 1]]
+                        self.belief2Dist[n, t] = self.den2[self.color2[n, t], :, self.belief2[n, t - 1]]
 
                         if self.reward[n, t - 1] == 0:
                             self.reward[n, t] = 0
@@ -548,6 +561,7 @@ class twoboxColMDPdata(twoboxColMDP):
                             self.belief2[n, t] = np.argmax(
                                 np.random.multinomial(1, self.den2[self.color2[n, t], :, self.belief2[n, t - 1]],
                                                       size=1))
+                            self.belief2Dist[n, t] = self.den2[self.color2[n, t], :, self.belief2[n, t - 1]]
 
                             if self.trueState1[n, t - 1] == 0:
                                 self.trueState1[n, t] = 0
@@ -555,6 +569,8 @@ class twoboxColMDPdata(twoboxColMDP):
                                 # if true world is zero, pb does not change real state
                                 # assume that the real state does not change during button press
                                 self.belief1[n, t] = 0  # after open the box, the animal is sure that there is no food there
+                                self.belief1Dist[n, t, self.belief1[n, t]] = 1
+
                                 if self.reward[n, t - 1] == 0:  # reward depends on previous time frame
                                     self.reward[n, t] = 0
                                 else:
@@ -563,6 +579,8 @@ class twoboxColMDPdata(twoboxColMDP):
                                 self.trueState1[n, t] = 0  # if true world is one, pb resets it to zero
                                 self.color1[n, t] = Ncol
                                 self.belief1[n, t] = 0
+                                self.belief1Dist[n, t, self.belief1[n, t]] = 1
+
                                 self.reward[n, t] = 1  # give some reward
 
                         if self.location[n, t] == 2:  # consider location 2 case
@@ -577,6 +595,7 @@ class twoboxColMDPdata(twoboxColMDP):
                             self.belief1[n, t] = np.argmax(
                                 np.random.multinomial(1, self.den1[self.color1[n, t], :, self.belief1[n, t - 1]],
                                                       size=1))
+                            self.belief1Dist[n, t] = self.den1[self.color1[n, t], :, self.belief1[n, t - 1]]
 
                             if self.trueState2[n, t - 1] == 0:
                                 self.trueState2[n, t] = self.trueState2[n, t - 1]
@@ -584,6 +603,8 @@ class twoboxColMDPdata(twoboxColMDP):
                                 # if true world is zero, pb does not change real state
                                 # assume that the real state does not change during button press
                                 self.belief2[n, t] = 0  # after open the box, the animal is sure that there is no food there
+                                self.belief2Dist[n, t, self.belief2[n, t]] = 1
+
                                 if self.reward[n, t - 1] == 0:  # reward depends on previous time frame
                                     self.reward[n, t] = 0
                                 else:
@@ -592,12 +613,15 @@ class twoboxColMDPdata(twoboxColMDP):
                                 self.trueState2[n, t] = 0  # if true world is one, pb resets it to zero
                                 self.color2[n, t] = Ncol
                                 self.belief2[n, t] = 0
+                                self.belief2Dist[n, t, self.belief2[n, t]] = 1
+
                                 self.reward[n, t] = 1  # give some reward
 
                     self.hybrid[n, t] = self.location[n, t] * (self.nq * self.nr * self.nq) + self.belief1[n, t] * (self.nr * self.nq) \
                                         + self.reward[n, t] * self.nq + self.belief2[n, t]  # hybrid state, for policy choosing
                     #print self.location[n, t], self.belief1[n, t], self.reward[n, t], self.belief2[n, t], self.hybrid[n, t], self.action[n, t-1]
                     self.action[n, t] = self._chooseAction(self.softpolicy.T[self.hybrid[n, t]])
+                    self.actionDist[n, t] = self.softpolicy.T[self.hybrid[n, t]]
 
 
     def _chooseAction(self, pvec):

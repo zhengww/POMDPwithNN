@@ -61,10 +61,14 @@ def twoboxColGenerate(parameters, parametersExp, sample_length, sample_number, n
     color1 = twoboxColdata.color1
     color2 = twoboxColdata.color2
 
+    actionDist = twoboxColdata.actionDist
+    belief1Dist = twoboxColdata.belief1Dist
+    belief2Dist = twoboxColdata.belief2Dist
+
     # sampleNum * sampleTime * dim of observations(=3 here, action, reward, location)
     # organize data
-    obsN = np.dstack([action, reward, location, color1, color2])  # includes the action and the observable states
-    latN = np.dstack([belief1, belief2])
+    obsN = np.dstack([action, reward, location, color1, color2, actionDist])  # includes the action and the observable states
+    latN = np.dstack([belief1, belief2, belief1Dist, belief2Dist])
     truthN = np.dstack([trueState1, trueState2])
     dataN = np.dstack([obsN, latN, truthN])
 
@@ -180,3 +184,5 @@ def oneboxGenerate(parameters, parametersExp, sample_length, sample_number, nq, 
     print('Data stored in files')
 
     return obsN, latN, truthN, datestring
+
+
