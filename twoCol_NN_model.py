@@ -11,9 +11,9 @@ from torch.autograd import Variable
 #                                         --> Linear with softmax -- > action 
 ######################################################   
 """
-class RNN(nn.Module):
+class rnn(nn.Module):
     def __init__(self, input_size, hidden_size_bel, output_size_bel, num_layers):
-        super(RNN, self).__init__()
+        super(rnn, self).__init__()
 
         self.input_size = input_size
         self.hidden_size_bel = hidden_size_bel
