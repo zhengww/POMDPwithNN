@@ -1,7 +1,7 @@
-parametersAgent = [0.2, 0.15, 0.1, 0.08, 0.2, 0.15, 0.3, 5, 0.42, 0.66, 0.1]
+parametersAgent = [0.2, 0.15, 0.1, 0.08, 0.2, 0.15, 0.3, 5, 0.42, 0.66, 0.1] #parameters of the POMDP agent
 #parametersExp = [0.2, 0.15, 0.1, 0.08, 0.42, 0.66]
-parametersExp = [0.15, 0.1, 0.05, 0.04, 0.4, 0.6]
-
+parametersExp = [0.15, 0.1, 0.05, 0.04, 0.4, 0.6] #experiment parameters
+ 
 sample_length = 500
 sample_number = 200
 
@@ -16,6 +16,7 @@ discount = 0.99
 Numcol = parametersAgent[7]  # number of colors
 Ncol = Numcol  - 1  # number value: 0 top Numcol-1
 Nf = na + nr + nl + Numcol * 2
+
 
 """
 set parameters for training
