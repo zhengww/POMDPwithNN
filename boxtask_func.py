@@ -396,3 +396,22 @@ def QfromV_pi(PolicyIteration):
         Q[a, :] = PolicyIteration.R[a] + PolicyIteration.discount * \
                                         PolicyIteration.P[a].dot(PolicyIteration.V)
     return Q
+
+
+
+def find_closest(array, value):
+    # array is vector
+    # value is scalar
+    # find the cloest point to value in the array
+
+    array = np.asarray(array)
+    idx = (np.abs(array - value)).argmin()
+    return array[idx]
+
+
+def find_closest_array(array, values):
+    output = np.zeros(values.shape)
+    for i in range(values.shape[0]):
+        output[i] = find_closest(array, values[i])
+
+    return output
