@@ -271,6 +271,7 @@ for n in range(N):
 
             hybrid_POMDP[n, t] = location[n, t] * (nq * nr * nq) + belief1_POMDP[n, t] * (
                     nr * nq) + reward[n, t] * nq + belief2_POMDP[n, t]  # hybrid state, for policy choosing
+            actionDist_POMDP[n, t] = softpolicy.T[hybrid_POMDP[n, t]]
             action_POMDP[n, t] = np.argmax(np.random.multinomial
                                            (1, softpolicy.T[hybrid_POMDP[n, t]]))
 
