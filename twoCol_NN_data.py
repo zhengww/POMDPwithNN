@@ -13,17 +13,17 @@ def one_hot_encode(data, dict_size, seq_len, sample_num):
     return features
 
 
-def preprocessData(obsN, latN, nq, na, nr, nl, Ncol1, Ncol2):
+def preprocessData(obsN, latN, nq, na, nr, nl, Numcol):
     Ns = obsN.shape[0]
     Nt = obsN.shape[1] - 1
-    Nf = na + nr + nl + Ncol1 + Ncol2
+    Nf = na + nr + nl + Numcol + Numcol
     xMatFull = np.zeros((Ns, Nt, Nf), dtype=int)
 
     act_onehot = one_hot_encode(obsN[:, 0:-1, 0].astype(int), na, Nt, Ns)
     rew_onehot = one_hot_encode(obsN[:, 1:, 1].astype(int), nr, Nt, Ns)
     loc_onehot = one_hot_encode(obsN[:, 1:, 2].astype(int), nl, Nt, Ns)
-    col1_onehot = one_hot_encode(obsN[:, 1:, 3].astype(int), Ncol1, Nt, Ns)
-    col2_onehot = one_hot_encode(obsN[:, 1:, 4].astype(int), Ncol2, Nt, Ns)
+    col1_onehot = one_hot_encode(obsN[:, 1:, 3].astype(int), Numcol, Nt, Ns)
+    col2_onehot = one_hot_encode(obsN[:, 1:, 4].astype(int), Numcol, Nt, Ns)
     xMatFull[:, :, :] = np.concatenate((act_onehot, rew_onehot, loc_onehot, col1_onehot, col2_onehot),
                                        axis=2)  # cascade all the input
     # 5  + 2 + 3 + 5 + 5

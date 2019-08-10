@@ -2,6 +2,7 @@ from __future__ import division
 from MDPclass import *
 from scipy.linalg import block_diag
 from boxtask_func import *
+from HMMtwoboxCol import *
 
 
 # we need five different transition matrices, one for each of the following actions:
@@ -467,7 +468,6 @@ class twoboxColMDPdata(twoboxColMDP):
                     self.color1[n, t] = np.random.binomial(Ncol, q1)  # color for box 1
                     q2 = self.trueState2[n, t] * qmin_e + (1 - self.trueState2[n, t]) * qmax_e
                     self.color2[n, t] = np.random.binomial(Ncol, q2)  # color for box 2
-
 
                     self.location[n, t], self.belief1[n, t], self.reward[n, t], self.belief2[
                         n, t] = locationInitial, belief1Initial, rewInitial, belief2Initial

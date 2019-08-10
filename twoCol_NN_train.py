@@ -2,37 +2,19 @@ import torch
 import torch.nn as nn
 from torch.autograd import Variable
 import torch.utils.data as data_utils
+import matplotlib.pyplot as plt
 
 from twoCol_NN_params import *
 from POMDP_generate import *
-from twoCol_NN_POMDPdata import *
+from twoCol_NN_data import *
 from twoCol_NN_model import *
 
 
 path = os.getcwd()
-datestring_run = datetime.strftime(datetime.now(), '%m%d%Y(%H%M)')
+datestring_train = datetime.strftime(datetime.now(), '%m%d%Y(%H%M)')
 
-
-######################################################
-#
-#  Generate Data based on POMDP model
-#
-######################################################
-
-# parametersAgent = [gamma1, gamma2, epsilon1, epsilon2, groom, travelCost, pushButtonCost, NumCol, qmin, qmax, temperature]
-#parametersExp = [gamma1, gamma2, epsilon1, epsilon2, qmin, qmax]
-# parametersAgent = [0.2,0.15,0.1,0.08,0.2,0.15,0.3,5,0.42,0.66, 0.1]
-# #parametersExp = [0.15,0.1,0.05,0.04,0.4,0.6]
-# parametersExp = [0.2,0.15,0.1,0.08,0.42,0.66]
-#
-# nq = 10
-# nl = 3
-# nr = 2
-# na = 5
-# Ncol1 = parametersAgent[7]
-# Ncol2 = parametersAgent[7]
-# Nf = na + nr + nl + Ncol1 + Ncol2
-
+#parametersAgent = [0.2, 0.15, 0.1, 0.08, 0.2, 0.15, 0.3, 5, 0.42, 0.66, 0.1]
+#parametersExp = [0.2, 0.15, 0.1, 0.08, 0.42, 0.66]
 # sample_length = 500
 # sample_number = 200
 # obsN, latN, truthN, datestring_data = twoboxColGenerate(parametersAgent, parametersExp, sample_length, sample_number,
@@ -47,25 +29,7 @@ obsN = dataN_pkl['observations']
 latN = dataN_pkl['beliefs']
 
 
-
-xMatFull, yMatFull = preprocessData(obsN, latN, nq, na, nr, nl, Ncol1, Ncol2)
-
-
-# """
-# set parameters for training
-# """
-# input_size = Nf     # na+nr+nl+Ncol1+Ncol2
-# hidden_size_bel = 300   # number of neurons
-# output_size_bel = 2    # belief for the box (continuous)
-# hidden_size_act = 100
-# output_size_act = na
-# batch_size = 5
-# num_layers = 1
-# train_ratio = 0.9
-#
-# NEpochs_bel = 60
-# NEpochs_act = 300
-
+xMatFull, yMatFull = preprocessData(obsN, latN, nq, na, nr, nl, Numcol)
 train_loader, test_loader = splitData(xMatFull, yMatFull, train_ratio, batch_size)
 
 
@@ -104,7 +68,7 @@ for epoch in range(NEpochs_bel):
             'belNN_state_dict': rnn.state_dict(),
             'bel_optimizer_state_dict': optimizer.state_dict(),
             'bel_loss': loss,
-        }, path + '/Results/' + datestring_run + '_belNN' + '_epoch' + str(epoch+1) + '_data' + datestring_data)
+        }, path + '/Results/' + datestring_train + '_belNN' + '_epoch' + str(epoch+1) + '_data' + datestring_data)
 
 
 print("Belief network learning finished!")
@@ -115,7 +79,7 @@ print("Belief network learning finished!")
 net = net(hidden_size_bel, hidden_size_act, output_size_act)
 
 criterion_act = torch.nn.KLDivLoss(reduction = "batchmean")
-optimizer_act = torch.optim.Adam(rnn.parameters(), lr=0.001)
+optimizer_act = torch.optim.Adam(net.parameters(), lr=0.001)
 
 """
 Train action network module
@@ -149,6 +113,87 @@ for epoch in range(NEpochs_act):
             'actNN_state_dict': net.state_dict(),
             'act_optimizer_state_dict': optimizer_act.state_dict(),
             'act_loss': loss,
-        }, path + '/Results/' + datestring_run + '_actNN' + '_epoch' + str(epoch + 1) + '_data' + datestring_data)
+        }, path + '/Results/' + datestring_train + '_actNN' + '_epoch' + str(epoch+1) + '_data' + datestring_data)
 
 print("Action network learning finished!")
+
+
+
+###### FIGURES #############
+"""
+Plot the training error as a function of epochs
+"""
+plt.plot(train_loss_bel)
+plt.title('Training error of beliefs')
+plt.ylabel('mse of beliefs')
+plt.xlabel('Epochs')
+plt.show()
+
+
+"""
+Plot the training error as a function of epochs
+"""
+plt.plot(train_loss_act/(sample_length-1))
+plt.title('Training error of policy')
+plt.ylabel('KL of action')
+plt.xlabel('Epochs')
+plt.show()
+
+
+"""
+Cross-validation with testing data
+"""
+
+count = 0
+correct_count = 0
+with torch.no_grad():
+    for i, batch in enumerate(test_loader):
+        in_batch, target_batch = batch
+        target_bel_batch = target_batch[:, :, 0:2]
+
+        out_bel_batch, hidden_batch = rnn(in_batch)
+        out_act_batch = net(hidden_batch)
+
+        act_predicted = np.zeros((batch_size, sample_length - 1))
+        for i in range(batch_size):
+            for j in range(sample_length - 1):
+                act_predicted[i, j] = np.argmax(np.random.multinomial(1, out_act_batch[i, j, :]))
+        act_predicted = torch.from_numpy(act_predicted).to(torch.long)
+
+        count += in_batch.shape[0] * in_batch.shape[1]
+        correct_count += (act_predicted == target_act_batch.to(torch.long)).sum().item()
+
+print('MSE of belief: %f' % criterion(out_bel_batch.squeeze(), target_batch[:, :, 0:2]).item())
+
+T_st = 100
+T_end = 150
+time_range = np.arange(T_end - T_st)
+
+fig, ax = plt.subplots(1,2,figsize=(16,4))
+bef1_true = target_bel_batch[1:2,T_st:T_end, 0].float().squeeze().detach().numpy()
+bef1_est = out_bel_batch[1:2,T_st:T_end, 0].detach().squeeze().numpy()
+ax[0].plot(time_range, bef1_est, time_range, bef1_true)
+ax[0].legend(('bef_est', 'bef_true'))
+ax[0].set_yticks(np.arange(0.5/nq, 1, step=1/nq))
+ax[0].set_title('belief one box 1')
+ax[0].set_ylabel('belief')
+ax[0].set_xlabel('time')
+bef2_true = target_bel_batch[1:2,T_st:T_end, 1].float().squeeze().detach().numpy()
+bef2_est = out_bel_batch[1:2,T_st:T_end, 1].detach().squeeze().numpy()
+ax[1].plot(time_range, bef2_est, time_range, bef2_true)
+ax[1].legend(('bef_est', 'bef_true'))
+ax[1].set_yticks(np.arange(0.5/nq, 1, step=1/nq))
+ax[1].set_title('belief on box 2')
+ax[1].set_ylabel('belief')
+ax[1].set_xlabel('time')
+plt.show()
+
+
+fig, ax = plt.subplots(2,1,figsize=(12,3), sharex=True)
+ax[0].imshow(target_batch[0, 0:100:, 3:].numpy().T, vmin = 0, vmax = 1)
+ax[0].set(xlabel='time', ylabel='true policy')
+ax[1].imshow(out_act_batch[0, 0:100, :].numpy().T, vmin = 0, vmax = 1)
+ax[1].set(xlabel='time', ylabel='est policy')
+plt.show()
+
+print(1)
