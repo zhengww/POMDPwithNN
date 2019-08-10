@@ -35,6 +35,7 @@ class rnn(nn.Module):
         return out_bel, out
 
 
+    
 """
 -- NN model for action --
 Architecture:
