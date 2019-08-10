@@ -169,6 +169,7 @@ T_st = 100
 T_end = 150
 time_range = np.arange(T_end - T_st)
 
+# plot the belief estimation
 fig, ax = plt.subplots(1,2,figsize=(16,4))
 bef1_true = target_bel_batch[1:2,T_st:T_end, 0].float().squeeze().detach().numpy()
 bef1_est = out_bel_batch[1:2,T_st:T_end, 0].detach().squeeze().numpy()
@@ -188,7 +189,7 @@ ax[1].set_ylabel('belief')
 ax[1].set_xlabel('time')
 plt.show()
 
-
+# plot policy 
 fig, ax = plt.subplots(2,1,figsize=(12,3), sharex=True)
 ax[0].imshow(target_batch[0, 0:100:, 3:].numpy().T, vmin = 0, vmax = 1)
 ax[0].set(xlabel='time', ylabel='true policy')
