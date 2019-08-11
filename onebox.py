@@ -162,12 +162,15 @@ class oneboxMDPdata(oneboxMDP):
         self.sampleNum = sampleNum
         self.sampleTime = sampleTime
 
-        self.action = np.empty((self.sampleNum, self.sampleTime), int)  # initialize action, assumed to be optimal
+        self.action = np.empty((self.sampleNum, self.sampleTime), int)  # initialize action
         self.hybrid = np.empty((self.sampleNum, self.sampleTime), int)  # initialize hybrid state.
         # Here it is the joint state of reward and belief
         self.belief = np.empty((self.sampleNum, self.sampleTime), int)  # initialize hidden state, belief state
         self.reward = np.empty((self.sampleNum, self.sampleTime), int)  # initialize reward state
         self.trueState = np.zeros((self.sampleNum, self.sampleTime))
+
+        self.actionDist = np.empty((self.sampleNum, self.sampleTime, self.na), int)
+        self.beliefDist = np.empty((self.sampleNum, self.sampleTime, self.nq), int)
 
         self.setupMDP()
         self.solveMDP_op()
