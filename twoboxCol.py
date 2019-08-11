@@ -410,7 +410,6 @@ class twoboxColMDPdata(twoboxColMDP):
                     self.action[n, t] = self.policy[self.hybrid[n, t]]
 
 
-
     def dataGenerate_sfm(self, belief1Initial, rewInitial, belief2Initial, locationInitial):
 
         ## Parameters
