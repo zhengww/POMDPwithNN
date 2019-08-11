@@ -8,6 +8,7 @@ sample_number = 200
 datestring_data = '07172019(1604)'
 datestring_train = '08102019(2344)'
 
+
 nq = 10
 nl = 3
 nr = 2

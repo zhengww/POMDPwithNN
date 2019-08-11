@@ -10,6 +10,7 @@ from twoCol_NN_data import *
 from twoCol_NN_model import *
 
 
+
 path = os.getcwd()
 datestring_train = datetime.strftime(datetime.now(), '%m%d%Y(%H%M)')
 
