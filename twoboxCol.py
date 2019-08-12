@@ -218,7 +218,7 @@ class twoboxColMDPdata(twoboxColMDP):
         self.solveMDP_sfm()
 
 
-    def dataGenerate_op(self, belief1Initial, rewInitial, belief2Initial, locationInitial):
+    def dataGenerate_op(self):
 
 
         ## Parameters
@@ -268,6 +268,9 @@ class twoboxColMDPdata(twoboxColMDP):
 
         ## Generate data
         for n in range(self.sampleNum):
+            belief1Initial, rewInitial, belief2Initial, locationInitial = \
+                np.random.randint(self.nq), np.random.randint(self.nr), np.random.randint(self.nq), np.random.randint(
+                    self.nl)
             for t in range(self.sampleTime):
                 if t == 0:
                     # Initialize the true world states, sensory information and latent states
@@ -410,7 +413,7 @@ class twoboxColMDPdata(twoboxColMDP):
                     self.action[n, t] = self.policy[self.hybrid[n, t]]
 
 
-    def dataGenerate_sfm(self, belief1Initial, rewInitial, belief2Initial, locationInitial):
+    def dataGenerate_sfm(self):
 
         ## Parameters
         # beta = self.parameters[0]     # available food dropped back into box after button press
@@ -458,6 +461,8 @@ class twoboxColMDPdata(twoboxColMDP):
 
         ## Generate data
         for n in range(self.sampleNum):
+            belief1Initial, rewInitial, belief2Initial, locationInitial = \
+                np.random.randint(self.nq), np.random.randint(self.nr), np.random.randint(self.nq), np.random.randint(self.nl)
             for t in range(self.sampleTime):
                 if t == 0:
                     # Initialize the true world states, sensory information and latent states
@@ -622,7 +627,7 @@ class twoboxColMDPdata(twoboxColMDP):
                     self.action[n, t] = self._chooseAction(self.softpolicy.T[self.hybrid[n, t]])
                     self.actionDist[n, t] = self.softpolicy.T[self.hybrid[n, t]]
 
-    def dataGenerate_offpolicy(self, belief1Initial, rewInitial, belief2Initial, locationInitial, actionSel):
+    def dataGenerate_offpolicy(self, actionSel):
 
         ## Parameters
         # beta = self.parameters[0]     # available food dropped back into box after button press
@@ -670,6 +675,10 @@ class twoboxColMDPdata(twoboxColMDP):
 
         ## Generate data
         for n in range(self.sampleNum):
+            belief1Initial, rewInitial, belief2Initial, locationInitial = \
+                np.random.randint(self.nq), np.random.randint(self.nr), np.random.randint(self.nq), np.random.randint(
+                    self.nl)
+
             for t in range(self.sampleTime):
                 if t == 0:
                     # Initialize the true world states, sensory information and latent states

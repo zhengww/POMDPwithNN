@@ -2,8 +2,8 @@
 from twoboxCol import *
 from twoCol_NN_data import *
 
-def agent_NN(bel_model, act_model, parametersExp_test, POMDP_params, nn_params, N, T):
-    nq, na, nr, nl, Numcol, _ = POMDP_params
+def agent_NN(bel_model, act_model, POMDP_params, nn_params, N, T):
+    nq, na, nr, nl, Numcol, discount, parametersAgent, parametersExp, parametersExp_test = POMDP_params
     input_size, hidden_size_bel, output_size_bel, hidden_size_act, output_size_act, num_layers = nn_params
     #batch_size, train_ratio, NEpochs_bel, NEpochs_act = training_params
 
@@ -185,7 +185,7 @@ def agent_NN(bel_model, act_model, parametersExp_test, POMDP_params, nn_params, 
                 input_belNN = torch.tensor(input_belNN, dtype=torch.float)
 
                 with torch.no_grad():
-                    out_bel_batch, hidden_batch = bel_model(input_belNN)
+                    out_bel_batch, hidden_batch = bel_model(input_belNN, hidden_batch)
                     out_act_batch = act_model(hidden_batch)
 
                 act_predicted = np.argmax(np.random.multinomial(1, out_act_batch[0, 0, :]))
@@ -199,13 +199,18 @@ def agent_NN(bel_model, act_model, parametersExp_test, POMDP_params, nn_params, 
     latN = np.dstack([belief1, belief2])
     truthN = np.dstack([trueState1, trueState2])
     neuralNN = np.dstack([neural_response])
-    dataN = np.dstack([obsN, latN, neuralNN, truthN])
 
-    return dataN
+    ### write data to file
+    data_dict = {'observations': obsN,
+                 'beliefs': latN,
+                 'trueStates': truthN,
+                 'neural_response': neuralNN}
+
+    return data_dict
 
 
-def agent_NNandPOMDP_NN(bel_model, act_model, parametersExp_test, POMDP_params, parametersAgent, nn_params, N, T):
-    nq, na, nr, nl, Numcol, discount = POMDP_params
+def agent_NNandPOMDP_NN(bel_model, act_model, POMDP_params, nn_params, N, T):
+    nq, na, nr, nl, Numcol, discount, parametersAgent, parametersExp, parametersExp_test = POMDP_params
     input_size, hidden_size_bel, output_size_bel, hidden_size_act, output_size_act, num_layers = nn_params
     #batch_size, train_ratio, NEpochs_bel, NEpochs_act = training_params
 
@@ -245,6 +250,7 @@ def agent_NNandPOMDP_NN(bel_model, act_model, parametersExp_test, POMDP_params, 
     color1 = np.empty((N, T), dtype=int)
     color2 = np.empty((N, T), dtype=int)
     neural_response = np.empty((N, T, hidden_size_bel))
+    actionDist = np.zeros((N, T, na))
 
     for n in range(N):
         actionInitial = 0  # at time t = -1
@@ -277,6 +283,7 @@ def agent_NNandPOMDP_NN(bel_model, act_model, parametersExp_test, POMDP_params, 
                     out_act_batch = act_model(hidden_batch)  # policy
 
                     act_predicted = np.argmax(np.random.multinomial(1, out_act_batch[0, 0, :]))
+                    actionDist[n, t] = out_act_batch[0, 0, :].numpy()
 
                 belief1[n, t] = out_bel_batch[:, :, 0]
                 belief2[n, t] = out_bel_batch[:, :, 1]
@@ -289,6 +296,7 @@ def agent_NNandPOMDP_NN(bel_model, act_model, parametersExp_test, POMDP_params, 
                 hybrid_POMDP[n, t] = location[n, t] * (nq * nr * nq) + belief1_POMDP[n, t] * (
                         nr * nq) + reward[n, t] * nq + belief2_POMDP[n, t]  # hybrid state, for policy choosing
                 action_POMDP[n, t] = action[n, t]
+                actionDist_POMDP[n, t] = softpolicy.T[hybrid_POMDP[n, t]]
                 belief1Dist_POMDP[n, t, belief1_POMDP[n, t]] = 1
                 belief2Dist_POMDP[n, t, belief2_POMDP[n, t]] = 1
 
@@ -314,16 +322,12 @@ def agent_NNandPOMDP_NN(bel_model, act_model, parametersExp_test, POMDP_params, 
                     q2 = trueState2[n, t] * qmin_e_test + (1 - trueState2[n, t]) * qmax_e_test
                     color2[n, t] = np.random.binomial(Ncol, q2)  # color for box 2
 
-                    belief1Dist_POMDP[n, t] = den1[color1[n, t], :, int(
-                        find_closest((np.arange(nq) + 0.5) / nq, belief1[n, t - 1]) * nq - 0.5)]
+                    belief1Dist_POMDP[n, t] = den1[color1[n, t], :, belief1_POMDP[n, t-1]]
                     belief1_POMDP[n, t] = np.argmax(
-                        np.random.multinomial(1, den1[color1[n, t], :, int(
-                            find_closest((np.arange(nq) + 0.5) / nq, belief1[n, t - 1]) * nq - 0.5)], size=1))
-                    belief1Dist_POMDP[n, t] = den2[color2[n, t], :, int(
-                        find_closest((np.arange(nq) + 0.5) / nq, belief2[n, t - 1]) * nq - 0.5)]
+                        np.random.multinomial(1, den1[color1[n, t], :, belief1_POMDP[n, t-1]], size=1))
+                    belief2Dist_POMDP[n, t] = den2[color2[n, t], :, belief2_POMDP[n, t-1]]
                     belief2_POMDP[n, t] = np.argmax(
-                        np.random.multinomial(1, den2[color2[n, t], :, int(
-                            find_closest((np.arange(nq) + 0.5) / nq, belief2[n, t - 1]) * nq - 0.5)], size=1))
+                        np.random.multinomial(1, den2[color2[n, t], :, belief2_POMDP[n, t-1]], size=1))
 
                     if reward[n, t - 1] == 0:
                         reward[n, t] = 0
@@ -372,15 +376,13 @@ def agent_NNandPOMDP_NN(bel_model, act_model, parametersExp_test, POMDP_params, 
                         color2[n, t] = np.random.binomial(Ncol, q2)  # color for box 2
 
                         belief2_POMDP[n, t] = np.argmax(
-                            np.random.multinomial(1, den2[color2[n, t], :, int(
-                                find_closest((np.arange(nq) + 0.5) / nq, belief2[n, t - 1]) * nq - 0.5)],
+                            np.random.multinomial(1, den2[color2[n, t], :, belief2_POMDP[n, t-1]],
                                                   size=1))
 
                         belief1_POMDP[n, t] = 0
 
                         belief1Dist_POMDP[n, t, belief1_POMDP[n, t]] = 1
-                        belief2Dist_POMDP[n, t] = den2[color2[n, t], :, int(
-                            find_closest((np.arange(nq) + 0.5) / nq, belief2[n, t - 1]) * nq - 0.5)]
+                        belief2Dist_POMDP[n, t] = den2[color2[n, t], :, belief2_POMDP[n, t-1]]
 
 
                         if trueState1[n, t - 1] == 0:
@@ -406,14 +408,12 @@ def agent_NNandPOMDP_NN(bel_model, act_model, parametersExp_test, POMDP_params, 
                         color1[n, t] = np.random.binomial(Ncol, q1)  # color for box 2
 
                         belief1_POMDP[n, t] = np.argmax(
-                            np.random.multinomial(1, den1[color1[n, t], :, int(
-                                find_closest((np.arange(nq) + 0.5) / nq, belief1[n, t - 1]) * nq - 0.5)],
+                            np.random.multinomial(1, den1[color1[n, t], :, belief1_POMDP[n, t-1]],
                                                   size=1))
                         belief2_POMDP[n, t] = 0
 
                         belief2Dist_POMDP[n, t, belief2_POMDP[n, t]] = 1
-                        belief1Dist_POMDP[n, t] = den1[color1[n, t], :, int(
-                            find_closest((np.arange(nq) + 0.5) / nq, belief1[n, t - 1]) * nq - 0.5)]
+                        belief1Dist_POMDP[n, t] = den1[color1[n, t], :, belief1_POMDP[n, t-1]]
 
                         if trueState2[n, t - 1] == 0:
                             trueState2[n, t] = trueState2[n, t - 1]
@@ -440,8 +440,10 @@ def agent_NNandPOMDP_NN(bel_model, act_model, parametersExp_test, POMDP_params, 
                 input_belNN = torch.tensor(input_belNN, dtype=torch.float)
 
                 with torch.no_grad():
-                    out_bel_batch, hidden_batch = bel_model(input_belNN)
+                    out_bel_batch, hidden_batch = bel_model(input_belNN, hidden_batch)
                     out_act_batch = act_model(hidden_batch)
+
+                    actionDist[n, t] = out_act_batch[0, 0, :].numpy()
 
                 act_predicted = np.argmax(np.random.multinomial(1, out_act_batch[0, 0, :]))
 
@@ -452,15 +454,16 @@ def agent_NNandPOMDP_NN(bel_model, act_model, parametersExp_test, POMDP_params, 
 
                 hybrid_POMDP[n, t] = location[n, t] * (nq * nr * nq) + belief1_POMDP[n, t] * (
                         nr * nq) + reward[n, t] * nq + belief2_POMDP[n, t]  # hybrid state, for policy choosing
+                actionDist_POMDP[n, t] = softpolicy.T[hybrid_POMDP[n, t]]
                 action_POMDP[n, t] = action[n, t]
 
-    obsN = np.dstack([action, reward, location, color1, color2])  # includes the action and the observable states
+    obsN = np.dstack([action, reward, location, color1, color2, actionDist])  # includes the action and the observable states
     latN = np.dstack([belief1, belief2])
     truthN = np.dstack([trueState1, trueState2])
     neuralNN = np.dstack([neural_response])
     dataN = np.dstack([obsN, latN, neuralNN, truthN])
     dataN_POMDP = np.dstack([action_POMDP, belief1_POMDP, belief2_POMDP])
-    dataN_POMDP_dist = np.dstack([belief1Dist_POMDP, belief2Dist_POMDP])
+    dataN_POMDP_dist = np.dstack([actionDist_POMDP, belief1Dist_POMDP, belief2Dist_POMDP])
 
     ### write data to file
     data_dict = {'observations': obsN,
@@ -473,14 +476,16 @@ def agent_NNandPOMDP_NN(bel_model, act_model, parametersExp_test, POMDP_params, 
 
     return data_dict
 
-def agent_NNandPOMDP_POMDP(bel_model, act_model, parametersExp_test, POMDP_params, parametersAgent, nn_params, N, T):
-    nq, na, nr, nl, Numcol, discount = POMDP_params
+def agent_NNandPOMDP_POMDP(bel_model, act_model, POMDP_params, nn_params, N, T):
+    nq, na, nr, nl, Numcol, discount, parametersAgent, parametersExp, parametersExp_test = POMDP_params
     input_size, hidden_size_bel, output_size_bel, hidden_size_act, output_size_act, num_layers = nn_params
     #batch_size, train_ratio, NEpochs_bel, NEpochs_act = training_params
 
     Ncol = Numcol - 1  # number value: 0 top Numcol-1
 
     twoboxColdata = twoboxColMDPdata(discount, nq, nr, na, nl, parametersAgent, parametersExp_test, T, N)
+    #twoboxColdata.dataGenerate_sfm()
+
     softpolicy = twoboxColdata.softpolicy
     den1 = twoboxColdata.den1
     den2 = twoboxColdata.den2
@@ -514,13 +519,20 @@ def agent_NNandPOMDP_POMDP(bel_model, act_model, parametersExp_test, POMDP_param
     color1 = np.empty((N, T), dtype=int)
     color2 = np.empty((N, T), dtype=int)
     neural_response = np.empty((N, T, hidden_size_bel))
+    actionDist = np.zeros((N, T, na))
+
+    actionInitial = 0  # at time t = -1
+    belief1Initial_POMDP = np.random.randint(nq)
+    rewInitial = np.random.randint(nr)
+    belief2Initial_POMDP = np.random.randint(nq)
+    locationInitial = np.random.randint(nl)
 
     for n in range(N):
-        actionInitial = 0  # at time t = -1
-        belief1Initial_POMDP = np.random.randint(nq)
-        rewInitial = np.random.randint(nr)
-        belief2Initial_POMDP = np.random.randint(nq)
-        locationInitial = np.random.randint(nl)
+        # actionInitial = 0  # at time t = -1
+        # belief1Initial_POMDP = np.random.randint(nq)
+        # rewInitial = np.random.randint(nr)
+        # belief2Initial_POMDP = np.random.randint(nq)
+        # locationInitial = np.random.randint(nl)
 
         for t in range(T):
             if t == 0:
@@ -545,7 +557,9 @@ def agent_NNandPOMDP_POMDP(bel_model, act_model, parametersExp_test, POMDP_param
                     out_bel_batch, hidden_batch = bel_model(input_belNN)
                     out_act_batch = act_model(hidden_batch)  # policy
 
-                    #act_predicted = np.argmax(np.random.multinomial(1, out_act_batch[0, 0, :]))
+                    act_predicted = np.argmax(np.random.multinomial(1, out_act_batch[0, 0, :]))
+
+                actionDist[n, t] = out_act_batch[0, 0, :].numpy()
 
                 belief1[n, t] = out_bel_batch[:, :, 0]
                 belief2[n, t] = out_bel_batch[:, :, 1]
@@ -562,7 +576,7 @@ def agent_NNandPOMDP_POMDP(bel_model, act_model, parametersExp_test, POMDP_param
                 belief1Dist_POMDP[n, t, belief1_POMDP[n, t]] = 1
                 belief2Dist_POMDP[n, t, belief2_POMDP[n, t]] = 1
 
-                action[n, t] = actionDist_POMDP[n, t]
+                action[n, t] = action_POMDP[n, t]
 
             else:
                 if action[n, t - 1] == pb and location[n, t - 1] == 0:
@@ -586,16 +600,23 @@ def agent_NNandPOMDP_POMDP(bel_model, act_model, parametersExp_test, POMDP_param
                     q2 = trueState2[n, t] * qmin_e_test + (1 - trueState2[n, t]) * qmax_e_test
                     color2[n, t] = np.random.binomial(Ncol, q2)  # color for box 2
 
-                    belief1Dist_POMDP[n, t] = den1[color1[n, t], :, int(
-                        find_closest((np.arange(nq) + 0.5) / nq, belief1[n, t - 1]) * nq - 0.5)]
+                    # belief1Dist_POMDP[n, t] = den1[color1[n, t], :, int(
+                    #     find_closest((np.arange(nq) + 0.5) / nq, belief1[n, t - 1]) * nq - 0.5)]
+                    # belief1_POMDP[n, t] = np.argmax(
+                    #     np.random.multinomial(1, den1[color1[n, t], :, int(
+                    #         find_closest((np.arange(nq) + 0.5) / nq, belief1[n, t - 1]) * nq - 0.5)], size=1))
+                    # belief1Dist_POMDP[n, t] = den2[color2[n, t], :, int(
+                    #     find_closest((np.arange(nq) + 0.5) / nq, belief2[n, t - 1]) * nq - 0.5)]
+                    # belief2_POMDP[n, t] = np.argmax(
+                    #     np.random.multinomial(1, den2[color2[n, t], :, int(
+                    #         find_closest((np.arange(nq) + 0.5) / nq, belief2[n, t - 1]) * nq - 0.5)], size=1))
+
+                    belief1Dist_POMDP[n, t] = den1[color1[n, t], :, belief1_POMDP[n, t-1]]
                     belief1_POMDP[n, t] = np.argmax(
-                        np.random.multinomial(1, den1[color1[n, t], :, int(
-                            find_closest((np.arange(nq) + 0.5) / nq, belief1[n, t - 1]) * nq - 0.5)], size=1))
-                    belief1Dist_POMDP[n, t] = den2[color2[n, t], :, int(
-                        find_closest((np.arange(nq) + 0.5) / nq, belief2[n, t - 1]) * nq - 0.5)]
+                        np.random.multinomial(1, belief1Dist_POMDP[n, t]))
+                    belief2Dist_POMDP[n, t] = den2[color2[n, t], :, belief2_POMDP[n, t-1]]
                     belief2_POMDP[n, t] = np.argmax(
-                        np.random.multinomial(1, den2[color2[n, t], :, int(
-                            find_closest((np.arange(nq) + 0.5) / nq, belief2[n, t - 1]) * nq - 0.5)], size=1))
+                        np.random.multinomial(1, belief2Dist_POMDP[n, t] , size=1))
 
                     if reward[n, t - 1] == 0:
                         reward[n, t] = 0
@@ -644,15 +665,12 @@ def agent_NNandPOMDP_POMDP(bel_model, act_model, parametersExp_test, POMDP_param
                         color2[n, t] = np.random.binomial(Ncol, q2)  # color for box 2
 
                         belief2_POMDP[n, t] = np.argmax(
-                            np.random.multinomial(1, den2[color2[n, t], :, int(
-                                find_closest((np.arange(nq) + 0.5) / nq, belief2[n, t - 1]) * nq - 0.5)],
+                            np.random.multinomial(1, den2[color2[n, t], :, belief2_POMDP[n, t-1]],
                                                   size=1))
-
                         belief1_POMDP[n, t] = 0
 
                         belief1Dist_POMDP[n, t, belief1_POMDP[n, t]] = 1
-                        belief2Dist_POMDP[n, t] = den2[color2[n, t], :, int(
-                            find_closest((np.arange(nq) + 0.5) / nq, belief2[n, t - 1]) * nq - 0.5)]
+                        belief2Dist_POMDP[n, t] = den2[color2[n, t], :, belief2_POMDP[n, t-1]]
 
 
                         if trueState1[n, t - 1] == 0:
@@ -678,14 +696,12 @@ def agent_NNandPOMDP_POMDP(bel_model, act_model, parametersExp_test, POMDP_param
                         color1[n, t] = np.random.binomial(Ncol, q1)  # color for box 2
 
                         belief1_POMDP[n, t] = np.argmax(
-                            np.random.multinomial(1, den1[color1[n, t], :, int(
-                                find_closest((np.arange(nq) + 0.5) / nq, belief1[n, t - 1]) * nq - 0.5)],
+                            np.random.multinomial(1, den1[color1[n, t], :, belief1_POMDP[n, t-1]],
                                                   size=1))
                         belief2_POMDP[n, t] = 0
 
                         belief2Dist_POMDP[n, t, belief2_POMDP[n, t]] = 1
-                        belief1Dist_POMDP[n, t] = den1[color1[n, t], :, int(
-                            find_closest((np.arange(nq) + 0.5) / nq, belief1[n, t - 1]) * nq - 0.5)]
+                        belief1Dist_POMDP[n, t] = den1[color1[n, t], :, belief1_POMDP[n, t-1]]
 
                         if trueState2[n, t - 1] == 0:
                             trueState2[n, t] = trueState2[n, t - 1]
@@ -712,10 +728,11 @@ def agent_NNandPOMDP_POMDP(bel_model, act_model, parametersExp_test, POMDP_param
                 input_belNN = torch.tensor(input_belNN, dtype=torch.float)
 
                 with torch.no_grad():
-                    out_bel_batch, hidden_batch = bel_model(input_belNN)
+                    out_bel_batch, hidden_batch = bel_model(input_belNN, hidden_batch)
                     out_act_batch = act_model(hidden_batch)
 
-                #act_predicted = np.argmax(np.random.multinomial(1, out_act_batch[0, 0, :]))
+                    actionDist[n,t] = out_act_batch[0, 0, :].numpy()
+                    act_predicted = np.argmax(np.random.multinomial(1, out_act_batch[0, 0, :]))
 
                 belief1[n, t] = out_bel_batch[:, :, 0]
                 belief2[n, t] = out_bel_batch[:, :, 1]
@@ -725,17 +742,130 @@ def agent_NNandPOMDP_POMDP(bel_model, act_model, parametersExp_test, POMDP_param
                 hybrid_POMDP[n, t] = location[n, t] * (nq * nr * nq) + belief1_POMDP[n, t] * (
                         nr * nq) + reward[n, t] * nq + belief2_POMDP[n, t]  # hybrid state, for policy choosing
                 actionDist_POMDP[n, t] = softpolicy.T[hybrid_POMDP[n, t]]
-                action_POMDP[n, t] = action[n, t]
+                action_POMDP[n, t] = np.argmax(np.random.multinomial(1, actionDist_POMDP[n, t]))
 
                 action[n, t] = action_POMDP[n, t]
 
-    obsN = np.dstack([action, reward, location, color1, color2])  # includes the action and the observable states
+    obsN = np.dstack([action, reward, location, color1, color2, actionDist])  # includes the action and the observable states
     latN = np.dstack([belief1, belief2])
     truthN = np.dstack([trueState1, trueState2])
     neuralNN = np.dstack([neural_response])
     dataN = np.dstack([obsN, latN, neuralNN, truthN])
     dataN_POMDP = np.dstack([action_POMDP, belief1_POMDP, belief2_POMDP])
-    dataN_POMDP_dist = np.dstack([belief1Dist_POMDP, belief2Dist_POMDP])
+    dataN_POMDP_dist = np.dstack([actionDist_POMDP, belief1Dist_POMDP, belief2Dist_POMDP])
+
+    ### write data to file
+    data_dict = {'observations': obsN,
+                 'beliefs': latN,
+                 'trueStates': truthN,
+                 'neural_response': neuralNN,
+                 'allData': dataN,
+                 'POMDP_agent': dataN_POMDP,
+                 'POMDP_agent_dist': dataN_POMDP_dist}
+
+    return data_dict
+
+# def agent_NNandPOMDP_POMDP(bel_model, act_model, parametersExp_test, POMDP_params, parametersAgent, nn_params, N, T):
+#     nq, na, nr, nl, Numcol, discount = POMDP_params
+#     input_size, hidden_size_bel, output_size_bel, hidden_size_act, output_size_act, num_layers = nn_params
+#     #batch_size, train_ratio, NEpochs_bel, NEpochs_act = training_params
+#
+#     Ncol = Numcol - 1  # number value: 0 top Numcol-1
+#
+#     twoboxColdata = twoboxColMDPdata(discount, nq, nr, na, nl, parametersAgent, parametersExp_test, T, N)
+#     twoboxColdata.dataGenerate_sfm()
+#
+#
+#     hybrid_POMDP = twoboxColdata.hybrid
+#     action_POMDP = twoboxColdata.action
+#     location = twoboxColdata.location
+#     belief1_POMDP = twoboxColdata.belief1
+#     belief2_POMDP = twoboxColdata.belief2
+#     reward = twoboxColdata.reward
+#     trueState1 = twoboxColdata.trueState1
+#     trueState2 = twoboxColdata.trueState2
+#     color1 = twoboxColdata.color1
+#     color2 = twoboxColdata.color2
+#
+#     actionDist_POMDP = twoboxColdata.actionDist
+#     belief1Dist_POMDP = twoboxColdata.belief1Dist
+#     belief2Dist_POMDP = twoboxColdata.belief2Dist
+#
+#     softpolicy = twoboxColdata.softpolicy
+#     # den1 = twoboxColdata.den1
+#     # den2 = twoboxColdata.den2
+#     # belief1_POMDP = np.empty((N, T), int)
+#     # belief2_POMDP = np.empty((N, T), int)
+#     # action_POMDP = np.empty((N, T), dtype=int)
+#     # hybrid_POMDP = np.empty((N, T), int)
+#     #actionDist_POMDP = np.zeros((N, T, na))
+#     # belief1Dist_POMDP = np.zeros((N, T, nq))
+#     # belief2Dist_POMDP = np.zeros((N, T, nq))
+#
+#     beta = 0  # available food dropped back into box after button press
+#     delta = 0  # animal trips, doesn't go to target location
+#     direct = 0  # animal goes right to target, skipping location 0
+#     rho = 1  # food in mouth is consumed
+#
+#     gamma1_e_test = parametersExp_test[0]
+#     gamma2_e_test = parametersExp_test[1]
+#     epsilon1_e_test = parametersExp_test[2]
+#     epsilon2_e_test = parametersExp_test[3]
+#     qmin_e_test = parametersExp_test[4]
+#     qmax_e_test = parametersExp_test[5]
+#
+#     action = action_POMDP
+#     #location = np.empty((N, T), dtype=int)
+#     belief1 = np.zeros((N, T))
+#     belief2 = np.zeros((N, T))
+#     #reward = np.empty((N, T), dtype=int)
+#     #trueState1 = np.empty((N, T), dtype=int)
+#     #trueState2 = np.empty((N, T), dtype=int)
+#     #color1 = np.empty((N, T), dtype=int)
+#     #color2 = np.empty((N, T), dtype=int)
+#     neural_response = np.zeros((N, T, hidden_size_bel))
+#     actionDist = np.zeros((N, T, na))
+#
+#     # actionInitial = 0  # at time t = -1
+#     # belief1Initial_POMDP = np.random.randint(nq)
+#     # rewInitial = np.random.randint(nr)
+#     # belief2Initial_POMDP = np.random.randint(nq)
+#     # locationInitial = np.random.randint(nl)
+#
+#
+#
+#     input_belNN = np.concatenate(
+#         (one_hot_encode(np.array(action[:, 0:-1]).astype(int), na, T-1, N),
+#          one_hot_encode(np.array(reward[:, 1:]).astype(int), nr, T-1, N),
+#          one_hot_encode(np.array(location[:, 1:]).astype(int), nl, T-1, N),
+#          one_hot_encode(np.array(color1[:, 1:]).astype(int), Numcol, T-1, N),
+#          one_hot_encode(np.array(color2[:, 1:]).astype(int), Numcol, T-1, N)), axis=2)  # cascade all the input
+#     input_belNN = torch.tensor(input_belNN, dtype=torch.float)
+#
+#     with torch.no_grad():
+#         out_bel_batch, hidden_batch = bel_model(input_belNN)
+#         out_act_batch = act_model(hidden_batch)  # policy
+#
+#         #act_predicted = np.argmax(np.random.multinomial(1, out_act_batch[0, 0, :]))
+#
+#
+#     actionDist[:, 1:, :] = out_act_batch[:, :, :].numpy()
+#     actionDist[:, 0, :] = actionDist_POMDP[:, 0, :]
+#     belief1[:, 1:]= out_bel_batch[:, :, 0]
+#     np.insert(belief1, 0, 0, axis=1)
+#     belief2[:, 1:] = out_bel_batch[:, :, 1]
+#     np.insert(belief2, 0, 0, axis=1)
+#     neural_response[:, 1:, :] = hidden_batch
+
+
+
+    obsN = np.dstack([action, reward, location, color1, color2, actionDist])  # includes the action and the observable states
+    latN = np.dstack([belief1, belief2])
+    truthN = np.dstack([trueState1, trueState2])
+    neuralNN = np.dstack([neural_response])
+    dataN = np.dstack([obsN, latN, neuralNN, truthN])
+    dataN_POMDP = np.dstack([action_POMDP, belief1_POMDP, belief2_POMDP])
+    dataN_POMDP_dist = np.dstack([actionDist_POMDP, belief1Dist_POMDP, belief2Dist_POMDP])
 
     ### write data to file
     data_dict = {'observations': obsN,

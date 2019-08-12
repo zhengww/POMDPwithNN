@@ -2,10 +2,11 @@ from twoCol_NN_train import *
 from twoCol_NN_agent import *
 
 def main():
-    existingPOMDP = True
+    existingPOMDP = False
     trainedNN = False
-    additionalTraining = True
+    additionalTraining = False
 
+    #parameters = [gamma1, gamma2, epsilon1, epsilon2, groom, travelCost, pushButtonCost, NumCol, qmin, qmax]
     parametersAgent = [0.2, 0.15, 0.1, 0.08, 0.2, 0.15, 0.3, 5, 0.42, 0.66, 0.1]
     parametersExp = [0.15, 0.1, 0.05, 0.04, 0.4, 0.6]
     parametersExp_test = parametersExp
@@ -31,12 +32,16 @@ def main():
     num_layers = 1
     train_ratio = 0.9
 
-    NEpochs_bel = 60
+    NEpochs_bel = 80
     NEpochs_act = 60
 
+    lr_bel = 0.001
+    lr_act = 0.001
+
     nn_params = [input_size, hidden_size_bel, output_size_bel, hidden_size_act, output_size_act, num_layers]
-    POMDP_params = [nq, na, nr, nl, Numcol, discount]
-    training_params = [batch_size, train_ratio, NEpochs_bel, NEpochs_act]
+    POMDP_params = [nq, na, nr, nl, Numcol, discount, parametersAgent, parametersExp, parametersExp_test]
+    training_params = [batch_size, train_ratio, NEpochs_bel, NEpochs_act, lr_bel, lr_act]
+
 
     if existingPOMDP:
         datestring_data = '07172019(1604)'
@@ -53,29 +58,27 @@ def main():
         sample_number = 200
 
         obsN, latN, truthN, datestring_data = twoboxColGenerate(parametersAgent, parametersExp, sample_length, sample_number,
-                                                       nq, nr, nl, na, belief1Initial=np.random.randint(nq), rewInitial=np.random.randint(nr),
-                                                       belief2Initial=np.random.randint(nq), locationInitial=np.random.randint(nl))
-
-    act = obsN[:, :, 0]
-    actionSel = np.array([len(np.where(act == 0)[0]),
-                          len(np.where(act == 1)[0]),
-                          len(np.where(act == 2)[0]),
-                          len(np.where(act == 3)[0]),
-                          len(np.where(act == 4)[0])])
-    actionSel = actionSel / np.sum(actionSel)
-    obsN1, latN1, truthN1, datestring_closeloop = twoboxColGenerate_offpolicy(actionSel, parametersAgent, parametersExp, sample_length,
-                                                                              sample_number, nq, nr, nl, na, belief1Initial=np.random.randint(nq), rewInitial=np.random.randint(nr),
-                                                         belief2Initial=np.random.randint(nq), locationInitial=np.random.randint(nl))
+                                                       nq, nr, nl, na)
 
 
     if trainedNN:
-        datestring_train = '08102019(2344)'
-        checkpoint_bel = torch.load(path + '/Results/' + datestring_train + '_belNN' + '_epoch' + str(NEpochs_bel) + '_data' + datestring_data)
+        datestring_train = '08112019(2146)'
+
+        if additionalTraining:
+            checkpoint_bel = torch.load(path + '/Results/' + datestring_train + '_belNN' + '_epoch' + str(
+                NEpochs_bel  * 2) + '_data' + datestring_data)
+            checkpoint_act = torch.load(path + '/Results/' + datestring_train + '_actNN' + '_epoch' + str(
+                NEpochs_act  * 2) + '_data' + datestring_data)
+        else:
+            checkpoint_bel = torch.load(path + '/Results/' + datestring_train + '_belNN' + '_epoch' + str(
+                NEpochs_bel) + '_data' + datestring_data)
+            checkpoint_act = torch.load(path + '/Results/' + datestring_train + '_actNN' + '_epoch' + str(
+                NEpochs_act) + '_data' + datestring_data)
+
         rnn = rnn_bel(input_size, hidden_size_bel, output_size_bel, num_layers)
         rnn.load_state_dict(checkpoint_bel['belNN_state_dict'])
         rnn.eval()
 
-        checkpoint_act = torch.load(path + '/Results/' + datestring_train + '_actNN' + '_epoch' + str(NEpochs_act) + '_data' + datestring_data)
         net = net_act(hidden_size_bel, hidden_size_act, output_size_act)
         net.load_state_dict(checkpoint_act['actNN_state_dict'])
         net.eval()
@@ -85,25 +88,57 @@ def main():
         net = net_act(hidden_size_bel, hidden_size_act, output_size_act)
 
         if additionalTraining:
+            act = obsN[:, :, 0]
+            actionSel = np.array([len(np.where(act == 0)[0]),
+                                  len(np.where(act == 1)[0]),
+                                  len(np.where(act == 2)[0]),
+                                  len(np.where(act == 3)[0]),
+                                  len(np.where(act == 4)[0])])
+            actionSel = actionSel / np.sum(actionSel)
+            obsN1, latN1, truthN1, datestring_closeloop = twoboxColGenerate_offpolicy(actionSel, parametersAgent,
+                                                                                      parametersExp, sample_length,
+                                                                                      sample_number, nq, nr, nl, na)
+
             rnn, net = training_double(obsN, latN, obsN1, latN1, POMDP_params, training_params, rnn, net,
                                        datestring_data, datestring_train)
         else:
-            rnn, net = training(obsN, latN, POMDP_params, training_params, rnn, net, datestring_data, datestring_train)
+            rnn, net, _, _ = training(obsN, latN, POMDP_params, training_params, rnn, net, datestring_data, datestring_train)
 
+        #plotter()
 
-        data_dict = agent_NNandPOMDP_NN(rnn, net, parametersExp_test, POMDP_params, parametersAgent, nn_params, N = 20, T = sample_length - 1)
-        datestring_NNagent = datetime.strftime(datetime.now(), '%m%d%Y(%H%M)')
-        data_output = open(path + '/Results/' + datestring_train  + '_data' + datestring_data + '_agentNNdriven' + datestring_NNagent + '_twoboxCol' + '.pkl', 'wb')
-        pickle.dump(data_dict, data_output)
-        data_output.close()
+    test_N = 5
+    test_T = 1000
 
-        data_dict1 = agent_NNandPOMDP_POMDP(rnn, net, parametersExp_test, N=20, T=sample_length - 1)
-        datestring_NNagent1 = datetime.strftime(datetime.now(), '%m%d%Y(%H%M)')
-        data_output1 = open(
-            path + '/Results/' + datestring_train + '_data' + datestring_data + '_agentPOMDPdriven' + datestring_NNagent1 + '_twoboxCol' + '.pkl',
-            'wb')
-        pickle.dump(data_dict1, data_output1)
-        data_output.close()
+    data_dict = agent_NNandPOMDP_NN(rnn, net, POMDP_params, nn_params, N = test_N, T = test_T)
+    datestring_NNagent = datetime.strftime(datetime.now(), '%m%d%Y(%H%M)')
+    data_output = open(path + '/Results/' + datestring_train  + '_data' + datestring_data + '_agentNNdriven' + datestring_NNagent + '_twoboxCol' + '.pkl', 'wb')
+    pickle.dump(data_dict, data_output)
+    data_output.close()
+
+    data_dict1 = agent_NNandPOMDP_POMDP(rnn, net, POMDP_params, nn_params, N = test_N, T = test_T)
+    datestring_NNagent1 = datetime.strftime(datetime.now(), '%m%d%Y(%H%M)')
+    data_output1 = open(path + '/Results/' + datestring_train + '_data' + datestring_data + '_agentPOMDPdriven' + datestring_NNagent1 + '_twoboxCol' + '.pkl', 'wb')
+    pickle.dump(data_dict1, data_output1)
+    data_output1.close()
+
+    data_dict2 = agent_NN(rnn, net, POMDP_params, nn_params, N = test_N, T = test_T)
+    datestring_NNagent2 = datetime.strftime(datetime.now(), '%m%d%Y(%H%M)')
+    data_output2 = open(
+        path + '/Results/' + datestring_train + '_data' + datestring_data + '_agentNN' + datestring_NNagent2 + '_twoboxCol' + '.pkl',
+        'wb')
+    pickle.dump(data_dict2, data_output2)
+    data_output2.close()
+
+    nn_para_dict = {'nn_params': nn_params,
+                 'training_params': training_params,
+                 'POMDP_params': POMDP_params
+                 }
+
+    # create a file that saves the parameter dictionary using pickle
+    para_output = open(path + '/Results/' + datestring_train + '_data' + datestring_data +  '_mainPara_twoboxCol' + '.pkl', 'wb')
+    pickle.dump(nn_para_dict, para_output)
+    para_output.close()
+
 
 if __name__ == "__main__":
     main()

@@ -6,10 +6,10 @@ from twoCol_NN_model import *
 
 
 def training(obsN, latN, POMDP_params, training_params, rnn, net, datestring_data, datestring_train):
-    sample_length = obsN.shape[0]
-    nq, na, nr, nl, Numcol, _ = POMDP_params
+    sample_length = obsN.shape[1]
+    nq, na, nr, nl, Numcol, discount, parametersAgent, parametersExp, parametersExp_test= POMDP_params
     #input_size, hidden_size_bel, output_size_bel, hidden_size_act, output_size_act, num_layers = nn_params
-    batch_size, train_ratio, NEpochs_bel, NEpochs_act = training_params
+    batch_size, train_ratio, NEpochs_bel, NEpochs_act, lr_bel, lr_act = training_params
 
     xMatFull, yMatFull = preprocessData(obsN, latN, nq, na, nr, nl, Numcol)
     train_loader, test_loader = splitData(xMatFull, yMatFull, train_ratio, batch_size)
@@ -19,7 +19,7 @@ def training(obsN, latN, POMDP_params, training_params, rnn, net, datestring_dat
     """
     #rnn = rnn(input_size, hidden_size_bel, output_size_bel, num_layers)
     criterion = torch.nn.MSELoss()
-    optimizer = torch.optim.Adam(rnn.parameters(), lr=0.001)
+    optimizer = torch.optim.Adam(rnn.parameters(), lr = lr_bel)
 
     """
     Train belief network module
@@ -54,7 +54,7 @@ def training(obsN, latN, POMDP_params, training_params, rnn, net, datestring_dat
     #net = net(hidden_size_bel, hidden_size_act, output_size_act)
 
     criterion_act = torch.nn.KLDivLoss(reduction="batchmean")
-    optimizer_act = torch.optim.Adam(net.parameters(), lr=0.001)
+    optimizer_act = torch.optim.Adam(net.parameters(), lr = lr_act)
 
     """
     Train action network module
@@ -168,14 +168,14 @@ def training(obsN, latN, POMDP_params, training_params, rnn, net, datestring_dat
     ax[1].set(xlabel='time', ylabel='est policy')
     plt.show()
 
-    return rnn, net
+    return rnn, net, test_loader, train_loader
 
 def training_double(obsN, latN, obsN1, latN1, POMDP_params, training_params, rnn, net, datestring_data, datestring_train):
     sample_length = obsN.shape[1]
 
-    nq, na, nr, nl, Numcol, _ = POMDP_params
+    nq, na, nr, nl, Numcol, _, parametersAgent, parametersExp, parametersExp_test = POMDP_params
     # input_size, hidden_size_bel, output_size_bel, hidden_size_act, output_size_act, num_layers = nn_params
-    batch_size, train_ratio, NEpochs_bel, NEpochs_act = training_params
+    batch_size, train_ratio, NEpochs_bel, NEpochs_act, _, _ = training_params
 
     xMatFull, yMatFull = preprocessData(obsN, latN, nq, na, nr, nl, Numcol)
     train_loader, test_loader = splitData(xMatFull, yMatFull, train_ratio, batch_size)
@@ -390,6 +390,8 @@ def training_double(obsN, latN, obsN1, latN1, POMDP_params, training_params, rnn
     ax[1].imshow(out_act_batch[0, 0:100, :].numpy().T, vmin=0, vmax=1)
     ax[1].set(xlabel='time', ylabel='est policy')
     plt.show()
+
+    return rnn, net
 
 
 
