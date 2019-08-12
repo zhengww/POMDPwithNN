@@ -7,7 +7,7 @@ import pickle
 path = os.getcwd()
 
 def twoboxColGenerate(parameters, parametersExp, sample_length, sample_number, nq, nr = 2, nl = 3, na = 5,
-                      discount = 0.99, belief1Initial=0, rewInitial=0, belief2Initial=0, locationInitial=0):
+                      discount = 0.99):
 
     datestring = datetime.strftime(datetime.now(), '%m%d%Y(%H%M)')  # current time used to set file name
 
@@ -48,7 +48,7 @@ def twoboxColGenerate(parameters, parametersExp, sample_length, sample_number, n
     T = sample_length
     N = sample_number
     twoboxColdata = twoboxColMDPdata(discount, nq, nr, na, nl, parameters, parametersExp, T, N)
-    twoboxColdata.dataGenerate_sfm(belief1Initial, rewInitial, belief2Initial, locationInitial)
+    twoboxColdata.dataGenerate_sfm()
 
     hybrid = twoboxColdata.hybrid
     action = twoboxColdata.action
@@ -186,7 +186,7 @@ def oneboxGenerate(parameters, parametersExp, sample_length, sample_number, nq, 
     return obsN, latN, truthN, datestring
 
 def twoboxColGenerate_offpolicy(actionSel, parameters, parametersExp, sample_length, sample_number, nq, nr = 2, nl = 3, na = 5,
-                      discount = 0.99, belief1Initial=0, rewInitial=0, belief2Initial=0, locationInitial=0):
+                      discount = 0.99):
 
     datestring = datetime.strftime(datetime.now(), '%m%d%Y(%H%M)')  # current time used to set file name
 
@@ -227,7 +227,7 @@ def twoboxColGenerate_offpolicy(actionSel, parameters, parametersExp, sample_len
     T = sample_length
     N = sample_number
     twoboxColdata = twoboxColMDPdata(discount, nq, nr, na, nl, parameters, parametersExp, T, N)
-    twoboxColdata.dataGenerate_offpolicy(belief1Initial, rewInitial, belief2Initial, locationInitial, actionSel)
+    twoboxColdata.dataGenerate_offpolicy(actionSel)
 
     hybrid = twoboxColdata.hybrid
     action = twoboxColdata.action
