@@ -24,11 +24,13 @@ class rnn_bel(nn.Module):
         self.rnn = nn.RNN(input_size, hidden_size_bel, batch_first=True)
         self.linear_bel = nn.Linear(hidden_size_bel, output_size_bel, bias=True)
 
-    def forward(self, x):
+    def forward(self, x, h_0 = None):
         # Initialize hidden and cell states
         # (num_layers * num_directions, batch, hidden_size) for batch_first=True
-        h_0 = Variable(torch.zeros(
+        if h_0 is None:
+            h_0 = Variable(torch.zeros(
             self.num_layers, x.size(0), self.hidden_size_bel))
+
 
         out, _ = self.rnn(x, h_0)
         out_bel = self.linear_bel(out)
