@@ -1,6 +1,6 @@
 
 from twoboxCol import *
-from twoCol_NN_data import *
+from twoCol_NN_data_utils import *
 
 def agent_NN(bel_model, act_model, POMDP_params, nn_params, N, T):
     nq, na, nr, nl, Numcol, discount, parametersAgent, parametersExp, parametersExp_test = POMDP_params
@@ -476,6 +476,7 @@ def agent_NNandPOMDP_NN(bel_model, act_model, POMDP_params, nn_params, N, T):
 
     return data_dict
 
+
 def agent_NNandPOMDP_POMDP(bel_model, act_model, POMDP_params, nn_params, N, T):
     nq, na, nr, nl, Numcol, discount, parametersAgent, parametersExp, parametersExp_test = POMDP_params
     input_size, hidden_size_bel, output_size_bel, hidden_size_act, output_size_act, num_layers = nn_params
@@ -528,12 +529,6 @@ def agent_NNandPOMDP_POMDP(bel_model, act_model, POMDP_params, nn_params, N, T):
     locationInitial = np.random.randint(nl)
 
     for n in range(N):
-        # actionInitial = 0  # at time t = -1
-        # belief1Initial_POMDP = np.random.randint(nq)
-        # rewInitial = np.random.randint(nr)
-        # belief2Initial_POMDP = np.random.randint(nq)
-        # locationInitial = np.random.randint(nl)
-
         for t in range(T):
             if t == 0:
                 trueState1[n, t] = np.random.binomial(1, gamma1_e_test)
@@ -764,99 +759,6 @@ def agent_NNandPOMDP_POMDP(bel_model, act_model, POMDP_params, nn_params, N, T):
                  'POMDP_agent_dist': dataN_POMDP_dist}
 
     return data_dict
-
-# def agent_NNandPOMDP_POMDP(bel_model, act_model, parametersExp_test, POMDP_params, parametersAgent, nn_params, N, T):
-#     nq, na, nr, nl, Numcol, discount = POMDP_params
-#     input_size, hidden_size_bel, output_size_bel, hidden_size_act, output_size_act, num_layers = nn_params
-#     #batch_size, train_ratio, NEpochs_bel, NEpochs_act = training_params
-#
-#     Ncol = Numcol - 1  # number value: 0 top Numcol-1
-#
-#     twoboxColdata = twoboxColMDPdata(discount, nq, nr, na, nl, parametersAgent, parametersExp_test, T, N)
-#     twoboxColdata.dataGenerate_sfm()
-#
-#
-#     hybrid_POMDP = twoboxColdata.hybrid
-#     action_POMDP = twoboxColdata.action
-#     location = twoboxColdata.location
-#     belief1_POMDP = twoboxColdata.belief1
-#     belief2_POMDP = twoboxColdata.belief2
-#     reward = twoboxColdata.reward
-#     trueState1 = twoboxColdata.trueState1
-#     trueState2 = twoboxColdata.trueState2
-#     color1 = twoboxColdata.color1
-#     color2 = twoboxColdata.color2
-#
-#     actionDist_POMDP = twoboxColdata.actionDist
-#     belief1Dist_POMDP = twoboxColdata.belief1Dist
-#     belief2Dist_POMDP = twoboxColdata.belief2Dist
-#
-#     softpolicy = twoboxColdata.softpolicy
-#     # den1 = twoboxColdata.den1
-#     # den2 = twoboxColdata.den2
-#     # belief1_POMDP = np.empty((N, T), int)
-#     # belief2_POMDP = np.empty((N, T), int)
-#     # action_POMDP = np.empty((N, T), dtype=int)
-#     # hybrid_POMDP = np.empty((N, T), int)
-#     #actionDist_POMDP = np.zeros((N, T, na))
-#     # belief1Dist_POMDP = np.zeros((N, T, nq))
-#     # belief2Dist_POMDP = np.zeros((N, T, nq))
-#
-#     beta = 0  # available food dropped back into box after button press
-#     delta = 0  # animal trips, doesn't go to target location
-#     direct = 0  # animal goes right to target, skipping location 0
-#     rho = 1  # food in mouth is consumed
-#
-#     gamma1_e_test = parametersExp_test[0]
-#     gamma2_e_test = parametersExp_test[1]
-#     epsilon1_e_test = parametersExp_test[2]
-#     epsilon2_e_test = parametersExp_test[3]
-#     qmin_e_test = parametersExp_test[4]
-#     qmax_e_test = parametersExp_test[5]
-#
-#     action = action_POMDP
-#     #location = np.empty((N, T), dtype=int)
-#     belief1 = np.zeros((N, T))
-#     belief2 = np.zeros((N, T))
-#     #reward = np.empty((N, T), dtype=int)
-#     #trueState1 = np.empty((N, T), dtype=int)
-#     #trueState2 = np.empty((N, T), dtype=int)
-#     #color1 = np.empty((N, T), dtype=int)
-#     #color2 = np.empty((N, T), dtype=int)
-#     neural_response = np.zeros((N, T, hidden_size_bel))
-#     actionDist = np.zeros((N, T, na))
-#
-#     # actionInitial = 0  # at time t = -1
-#     # belief1Initial_POMDP = np.random.randint(nq)
-#     # rewInitial = np.random.randint(nr)
-#     # belief2Initial_POMDP = np.random.randint(nq)
-#     # locationInitial = np.random.randint(nl)
-#
-#
-#
-#     input_belNN = np.concatenate(
-#         (one_hot_encode(np.array(action[:, 0:-1]).astype(int), na, T-1, N),
-#          one_hot_encode(np.array(reward[:, 1:]).astype(int), nr, T-1, N),
-#          one_hot_encode(np.array(location[:, 1:]).astype(int), nl, T-1, N),
-#          one_hot_encode(np.array(color1[:, 1:]).astype(int), Numcol, T-1, N),
-#          one_hot_encode(np.array(color2[:, 1:]).astype(int), Numcol, T-1, N)), axis=2)  # cascade all the input
-#     input_belNN = torch.tensor(input_belNN, dtype=torch.float)
-#
-#     with torch.no_grad():
-#         out_bel_batch, hidden_batch = bel_model(input_belNN)
-#         out_act_batch = act_model(hidden_batch)  # policy
-#
-#         #act_predicted = np.argmax(np.random.multinomial(1, out_act_batch[0, 0, :]))
-#
-#
-#     actionDist[:, 1:, :] = out_act_batch[:, :, :].numpy()
-#     actionDist[:, 0, :] = actionDist_POMDP[:, 0, :]
-#     belief1[:, 1:]= out_bel_batch[:, :, 0]
-#     np.insert(belief1, 0, 0, axis=1)
-#     belief2[:, 1:] = out_bel_batch[:, :, 1]
-#     np.insert(belief2, 0, 0, axis=1)
-#     neural_response[:, 1:, :] = hidden_batch
-
 
 
     obsN = np.dstack([action, reward, location, color1, color2, actionDist])  # includes the action and the observable states

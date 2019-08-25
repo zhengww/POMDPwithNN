@@ -5,7 +5,7 @@ from torch.autograd import Variable
 """
 ######################################################
 #
-#  -- RNN model class --
+#  -- NN model class --
 #  Architecture:
 #  Input layer --> Hidden recurrent layer --> Linear readout -- > belief
 #                                         --> Linear with softmax -- > action 

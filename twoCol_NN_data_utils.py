@@ -2,6 +2,16 @@ import numpy as np
 import torch
 import torch.utils.data as data_utils
 
+def one_hot_encode_sequence(data, dict_size):
+    seq_len = len(data)
+    # Creating a multi-dimensional array of zeros with the desired output shape
+    features = np.zeros((seq_len, dict_size))
+
+    # Replacing the 0 at the relevant character index with a 1 to represent that character
+    for i in range(seq_len):
+        features[i, data[i]] = 1
+    return features
+
 def one_hot_encode(data, dict_size, seq_len, sample_num):
     # Creating a multi-dimensional array of zeros with the desired output shape
     features = np.zeros((sample_num, seq_len, dict_size))
