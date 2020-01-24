@@ -93,7 +93,8 @@ class twoboxColMDP:
         # Tb2 = beliefTransitionMatrix(gamma2, epsilon2, nq, eta)
         #Tb1 = beliefTransitionMatrixGaussian(gamma1, epsilon1, self.nq, sigmaTb)
         #Tb2 = beliefTransitionMatrixGaussian(gamma2, epsilon2, self.nq, sigmaTb)
-        self.Trans_belief_obs1, self.Obs_emis_trans1, self.den1 = beliefTransitionMatrixGaussianCol(gamma1, epsilon1, qmin, qmax, Ncol, self.nq, sigma = 1 / self.nq / 3)
+        self.Trans_belief_obs1, self.Obs_emis_trans1, self.den1 = beliefTransitionMatrixGaussianCol(gamma1, epsilon1, qmin, qmax, Ncol,
+                                                                                                    self.nq, sigma = 1 / self.nq / 3)
 
         #self.Trans_hybrid_obs1 = np.zeros(((NumCol, self.n, self.n)))
         #for i in range(NumCol):
@@ -486,7 +487,35 @@ class twoboxColMDPdata(twoboxColMDP):
 
                 else:
                     if self.action[n, t - 1] == pb and self.location[n, t - 1] == 0:
-                        self.action[n, t - 1] = a0  # cannot press button at location 0
+                        #self.action[n, t - 1] = a0  # cannot press button at location 0
+
+                        self.location[n, t] = 0
+                        self.reward[n, t] = 0
+
+                        if self.trueState1[n, t - 1] == 0:
+                            self.trueState1[n, t] = np.random.binomial(1, gamma1_e)
+                        else:
+                            self.trueState1[n, t] = 1 - np.random.binomial(1, epsilon1_e)
+
+                        if self.trueState2[n, t - 1] == 0:
+                            self.trueState2[n, t] = np.random.binomial(1, gamma2_e)
+                        else:
+                            self.trueState2[n, t] = 1 - np.random.binomial(1, epsilon2_e)
+
+                        q1 = self.trueState1[n, t] * qmin_e + (1 - self.trueState1[n, t]) * qmax_e
+                        self.color1[n, t] = np.random.binomial(Ncol, q1)  # color for box 1
+                        q2 = self.trueState2[n, t] * qmin_e + (1 - self.trueState2[n, t]) * qmax_e
+                        self.color2[n, t] = np.random.binomial(Ncol, q2)  # color for box 2
+
+                        self.belief1[n, t] = np.argmax(
+                            np.random.multinomial(1, self.den1[self.color1[n, t], :, self.belief1[n, t - 1]], size=1))
+
+                        self.belief2[n, t] = np.argmax(
+                            np.random.multinomial(1, self.den2[self.color2[n, t], :, self.belief2[n, t - 1]], size=1))
+
+                        self.belief1Dist[n, t] = self.den1[self.color1[n, t], :, self.belief1[n, t - 1]]
+                        self.belief2Dist[n, t] = self.den2[self.color2[n, t], :, self.belief2[n, t - 1]]
+
 
                     # variables evolve with dynamics
                     if self.action[n, t - 1] != pb:
@@ -850,6 +879,70 @@ class twoboxColMDPdata(twoboxColMDP):
         # Generate action according to multinomial distribution
         stattemp = np.random.multinomial(1, pvec)
         return np.argmax(stattemp)
+
+
+class twoboxColMDP_der(twoboxColMDP):
+    """
+    Derivatives of log_likelihood with respect to the parameters
+    """
+
+    def __init__(self, discount, nq, nr, na, nl, parameters):
+        twoboxColMDP.__init__(self, discount, nq, nr, na, nl, parameters)
+
+        self.setupMDP()
+        self.solveMDP_op()
+        self.solveMDP_sfm()
+
+    def dloglikelihhod_dpara_sim(self, obs):
+        L = len(self.parameters)
+        pi = np.ones(self.nq * self.nq) / self.nq / self.nq
+        Numcol = np.rint(self.parameters[7]).astype(int) # number of colors
+        Ncol = Numcol - 1  # number value: 0 top Numcol-1
+
+        twoboxColHMM = HMMtwoboxCol(self.ThA, self.softpolicy,
+                                    self.Trans_hybrid_obs12, self.Obs_emis_trans1,
+                                    self.Obs_emis_trans2, pi, Ncol)
+        log_likelihood =  twoboxColHMM.computeQaux(obs, self.ThA, self.softpolicy, self.Trans_hybrid_obs12, self.Obs_emis_trans1, self.Obs_emis_trans2) + \
+                          twoboxColHMM.latent_entr(obs)
+
+        perturb = 10 ** -6
+
+        dloglikelihhod_dpara = np.zeros(L)
+
+        for i in range(L):
+            if i != 7: # if not color number parameter
+                para_perturb = np.copy(self.parameters)
+                para_perturb[i] = para_perturb[i] + perturb
+
+                twoboxCol_perturb = twoboxColMDP(self.discount, self.nq, self.nr, self.na, self.nl, para_perturb)
+                twoboxCol_perturb.setupMDP()
+                twoboxCol_perturb.solveMDP_sfm()
+                ThA_perturb = twoboxCol_perturb.ThA
+                policy_perturb = twoboxCol_perturb.softpolicy
+                Trans_hybrid_obs12_perturb = twoboxCol_perturb.Trans_hybrid_obs12
+                Obs_emis_trans1_perturb = twoboxCol_perturb.Obs_emis_trans1
+                Obs_emis_trans2_perturb = twoboxCol_perturb.Obs_emis_trans2
+                twoboxColHMM_perturb = HMMtwoboxCol(ThA_perturb, policy_perturb, Trans_hybrid_obs12_perturb,
+                                            Obs_emis_trans1_perturb, Obs_emis_trans2_perturb, pi, Ncol)
+
+                log_likelihood_perturb = twoboxColHMM_perturb.computeQaux(obs, ThA_perturb, policy_perturb, Trans_hybrid_obs12_perturb,
+                                            Obs_emis_trans1_perturb, Obs_emis_trans2_perturb) + twoboxColHMM_perturb.latent_entr(obs)
+
+                dloglikelihhod_dpara[i] = (log_likelihood_perturb - log_likelihood) / perturb
+
+        return dloglikelihhod_dpara
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 

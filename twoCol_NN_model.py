@@ -54,9 +54,9 @@ class net_act(nn.Module):
         self.hidden_size = hidden_size
         self.output_size_act = output_size_act
 
-        self.fc1 = nn.Linear(input_size, hidden_size, bias=True)
+        self.fc1 = nn.Linear(self.input_size, self.hidden_size, bias=True)
         self.activation = nn.ReLU()
-        self.fc2 = nn.Linear(hidden_size, output_size_act, bias=True)
+        self.fc2 = nn.Linear(self.hidden_size, self.output_size_act, bias=True)
         self.softmax = nn.Softmax(dim=2)
 
         self.softmax_temp = softmax_temp

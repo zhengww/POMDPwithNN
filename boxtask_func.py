@@ -402,7 +402,7 @@ def QfromV_pi(PolicyIteration):
 def find_closest(array, value):
     # array is vector
     # value is scalar
-    # find the cloest point to value in the array
+    # find the closest point to value in the array
 
     array = np.asarray(array)
     idx = (np.abs(array - value)).argmin()
@@ -415,3 +415,12 @@ def find_closest_array(array, values):
         output[i] = find_closest(array, values[i])
 
     return output
+
+
+def rmv_dup_arrary(x):
+    uniques = []
+    for arr in x:
+        if not any(np.array_equal(arr, unique_arr) for unique_arr in uniques):
+            uniques.append(arr)
+    return uniques
+

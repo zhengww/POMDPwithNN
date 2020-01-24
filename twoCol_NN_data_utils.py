@@ -1,7 +1,9 @@
 import numpy as np
 import torch
 import torch.utils.data as data_utils
-
+"""
+This files includes functions 
+"""
 def one_hot_encode_sequence(data, dict_size):
     seq_len = len(data)
     # Creating a multi-dimensional array of zeros with the desired output shape
@@ -12,7 +14,11 @@ def one_hot_encode_sequence(data, dict_size):
         features[i, data[i]] = 1
     return features
 
-def one_hot_encode(data, dict_size, seq_len, sample_num):
+def one_hot_encode(data, dict_size, seq_len = None, sample_num =None):
+    if seq_len == None:
+        seq_len = data.shape[1]
+    if sample_num == None:
+        sample_num = data.shape[0]
     # Creating a multi-dimensional array of zeros with the desired output shape
     features = np.zeros((sample_num, seq_len, dict_size))
 

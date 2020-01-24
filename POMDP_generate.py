@@ -1,15 +1,16 @@
 from twoboxCol import *
-from onebox import *
 from datetime import datetime
 import os
 import pickle
+import matplotlib.pyplot as plt
 
 path = os.getcwd()
+
 
 def twoboxColGenerate(parameters, parametersExp, sample_length, sample_number, nq, nr = 2, nl = 3, na = 5,
                       discount = 0.99):
 
-    datestring = datetime.strftime(datetime.now(), '%m%d%Y(%H%M)')  # current time used to set file name
+    datestring = datetime.strftime(datetime.now(), '%m%d%Y(%H%M%S)')  # current time used to set file name
 
     print("\nSet the parameters of the model... \n")
 
@@ -32,6 +33,7 @@ def twoboxColGenerate(parameters, parametersExp, sample_length, sample_number, n
     Ncol = NumCol - 1  # max value of color
     qmin = parameters[8]
     qmax = parameters[9]
+    temperatureQ = parameters[10]
 
     gamma1_e = parametersExp[0]
     gamma2_e = parametersExp[1]
@@ -40,8 +42,9 @@ def twoboxColGenerate(parameters, parametersExp, sample_length, sample_number, n
     qmin_e = parametersExp[4]
     qmax_e = parametersExp[5]
 
+
     # parameters = [gamma1, gamma2, epsilon1, epsilon2,
-    #              groom, travelCost, pushButtonCost, NumCol, qmin, qmax]
+    #              groom, travelCost, pushButtonCost, NumCol, qmin, qmax, temperature]
 
     ### Gnerate data"""
     print("Generating data...")
@@ -105,7 +108,10 @@ def twoboxColGenerate(parameters, parametersExp, sample_length, sample_number, n
                  'appRateExperiment2': gamma2_e,
                  'disappRateExperiment2': epsilon2_e,
                  'qminExperiment': qmin_e,
-                 'qmaxExperiment': qmax_e
+                 'qmaxExperiment': qmax_e,
+                 'temperature': temperatureQ,
+                 'sample_length': sample_length,
+                 'sample_number': sample_number
                  }
 
     # create a file that saves the parameter dictionary using pickle
@@ -117,76 +123,12 @@ def twoboxColGenerate(parameters, parametersExp, sample_length, sample_number, n
 
     return obsN, latN, truthN, datestring
 
-def oneboxGenerate(parameters, parametersExp, sample_length, sample_number, nq, nr = 2, na = 2,
-                   discount = 0.99, beliefInitial = 0, rewInitial = 0):
-    #datestring = datetime.strftime(datetime.now(), '%Y-%m-%d-%H-%M-%S')
-    datestring = datetime.strftime(datetime.now(), '%m%d%Y(%H%M)')   # current time used to set file name
-
-    beta = parameters[0]     # available food dropped back into box after button press
-    gamma = parameters[1]   # reward becomes available
-    epsilon = parameters[2]   # available food disappears
-    rho = parameters[3]   # .99      # food in mouth is consumed
-    pushButtonCost = parameters[4]
-    Reward = 1
-
-    gamma_e = parametersExp[0]
-    epsilon_e = parametersExp[1]
-    #parameters = [beta, gamma, epsilon, rho, pushButtonCost]
-
-    ### Gnerate data"""
-    print("\nGenerating data...")
-    T = sample_length
-    N = sample_number
-    oneboxdata = oneboxMDPdata(discount, nq, nr, na, parameters, parametersExp, T, N)
-    oneboxdata.dataGenerate_sfm(beliefInitial, rewInitial)  # softmax policy
-
-    belief = oneboxdata.belief
-    action = oneboxdata.action
-    reward = oneboxdata.reward
-    trueState = oneboxdata.trueState
-
-    # sampleNum * sampleTime * dim of observations(=3 here, action, reward, location)
-    # organize data
-    obsN = np.dstack([action, reward])  # includes the action and the observable states
-    latN = np.dstack([belief])
-    truthN = np.dstack([trueState])
-    dataN = np.dstack([obsN, latN, truthN])
-
-    ### write data to file
-    data_dict = {'observations': obsN,
-                 'beliefs': latN,
-                 'trueStates': truthN,
-                 'allData': dataN}
-    data_output = open(path + '/Results/' + datestring + '_dataN_onebox' + '.pkl', 'wb')
-    pickle.dump(data_dict, data_output)
-    data_output.close()
-
-    ### write all model parameters to file
-    para_dict = {'discount': discount,
-                 'nq': nq,
-                 'nr': nr,
-                 'na': na,
-                 'foodDrop': beta,
-                 'appRate': gamma,
-                 'disappRate': epsilon,
-                 'consume': rho,
-                 'reward': Reward,
-                 'pushButtonCost': pushButtonCost,
-                 'appRateExperiment': gamma_e,
-                 'disappRateExperiment': epsilon_e
-                 }
-
-    # create a file that saves the parameter dictionary using pickle
-    para_output = open(path + '/Results/' + datestring + '_para_onebox' + '.pkl', 'wb')
-    pickle.dump(para_dict, para_output)
-    para_output.close()
-
-    print('Data stored in files')
-
-    return obsN, latN, truthN, datestring
-
 def twoboxColGenerate_offpolicy(actionSel, parameters, parametersExp, sample_length, sample_number, nq, nr = 2, nl = 3, na = 5,
                       discount = 0.99):
+    """
+    Generate POMDP data with off-policy.
+    This is to introduce additional training when the training data is imbalanced.
+    """
 
     datestring = datetime.strftime(datetime.now(), '%m%d%Y(%H%M)')  # current time used to set file name
 

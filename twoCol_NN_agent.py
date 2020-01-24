@@ -150,6 +150,8 @@ def agent_NN(bel_model, act_model, POMDP_params, nn_params, N, T):
                             trueState1[n, t] = 0  # if true world is one, pb resets it to zero
                             color1[n, t] = Ncol
 
+                            reward[n, t] = 1
+
                     if location[n, t] == 2:  # consider location 2 case
 
                         # belief on box 1 is independent on box 2
@@ -396,6 +398,7 @@ def agent_NNandPOMDP_NN(bel_model, act_model, POMDP_params, nn_params, N, T):
                         else:
                             trueState1[n, t] = 0  # if true world is one, pb resets it to zero
                             color1[n, t] = Ncol
+                            reward[n, t] = 1
 
                     if location[n, t] == 2:  # consider location 2 case
 
@@ -679,6 +682,7 @@ def agent_NNandPOMDP_POMDP(bel_model, act_model, POMDP_params, nn_params, N, T):
                         else:
                             trueState1[n, t] = 0  # if true world is one, pb resets it to zero
                             color1[n, t] = Ncol
+                            reward[n, t] = 1
 
                     if location[n, t] == 2:  # consider location 2 case
 
@@ -761,24 +765,6 @@ def agent_NNandPOMDP_POMDP(bel_model, act_model, POMDP_params, nn_params, N, T):
     return data_dict
 
 
-    obsN = np.dstack([action, reward, location, color1, color2, actionDist])  # includes the action and the observable states
-    latN = np.dstack([belief1, belief2])
-    truthN = np.dstack([trueState1, trueState2])
-    neuralNN = np.dstack([neural_response])
-    dataN = np.dstack([obsN, latN, neuralNN, truthN])
-    dataN_POMDP = np.dstack([action_POMDP, belief1_POMDP, belief2_POMDP])
-    dataN_POMDP_dist = np.dstack([actionDist_POMDP, belief1Dist_POMDP, belief2Dist_POMDP])
-
-    ### write data to file
-    data_dict = {'observations': obsN,
-                 'beliefs': latN,
-                 'trueStates': truthN,
-                 'neural_response': neuralNN,
-                 'allData': dataN,
-                 'POMDP_agent': dataN_POMDP,
-                 'POMDP_agent_dist': dataN_POMDP_dist}
-
-    return data_dict
 
 
 
