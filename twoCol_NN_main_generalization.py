@@ -8,8 +8,8 @@ def main():
     generateNN = True
 
     if existingPOMDP:
-        datestring_start = '01072020(142210)'
-        datestring_end = '01072020(142503)'
+        datestring_start = '01242020(160104)'
+        datestring_end = '01242020(160259)'
 
         dataEnsemble_pkl_file = open(
             path + '/Results/' + datestring_start + '_' + datestring_end + '_dataEnsemble_twoboxCol' + '.pkl', 'rb')
@@ -120,7 +120,7 @@ def main():
     POMDP_params = [nq, na, nr, nl, Numcol, discount, parametersAgent_set]
 
     if trainedNN:
-        datestring_train =  '01072020(143650)'
+        datestring_train =  '01242020(160314)'
 
         nn_train_pkl_file = open(path + '/Results/' + datestring_train + '_data' +
                                  datestring_start + '_nn_train_params_twoboxCol_generalization.pkl', 'rb')
@@ -167,9 +167,12 @@ def main():
 
         datestring_train = datetime.strftime(datetime.now(), '%m%d%Y(%H%M%S)')
         print('datestring_train is:', datestring_train)
+        rnn, test_loader, _, train_loss= training_generalization(parameterSetFull, xMatFull, yMatFull, POMDP_params, training_params, nn_params,
+                                          datestring_start, datestring_train)
 
         nn_dict = {'nn_params': nn_params,
-                   'training_params': training_params
+                   'training_params': training_params,
+                   'train)loss': train_loss
 
         }
         data_output = open(path + '/Results/' + datestring_train + '_data' +
@@ -177,15 +180,12 @@ def main():
         pickle.dump(nn_dict, data_output)
         data_output.close()
 
-        rnn, test_loader, _, train_loss= training_generalization(parameterSetFull, xMatFull, yMatFull, POMDP_params, training_params, nn_params,
-                                          datestring_start, datestring_train)
-
     """
     generate NN and POMDP behavior data with observation from NN, compare policy 
     """
     if generateNN:
-        test_N = 1 #5
-        test_T = 5000 #20000
+        test_N = 1
+        test_T = 20000
         # parametersAgent_test = [0.15, 0.1, 0.1, 0.05, 0.2, 0.15, 0.3, 5, 0.48, 0.53, 0.1]
         # parametersExp_test = [0.2, 0.15, 0.05, 0.04, 0.45, 0.5]
 
@@ -204,7 +204,7 @@ def main():
 
         para = np.array(parametersAgent_test)
         obs_IRC = data_dict['observations'][0, :5000, :5].astype(int)  # NN agent behavior
-        twoboxCol = twoboxColMDP(discount, nq, nr, na, nl, para)
+        twoboxCol = twoboxColMDP(discount, 3, nr, na, nl, para)
         twoboxCol.setupMDP()
         twoboxCol.solveMDP_sfm()
         ThA = twoboxCol.ThA

@@ -108,7 +108,7 @@ class twoboxColMDP:
         #for i in range(NumCol):
         #    self.Trans_hybrid_obs2[i] = kronn(Tr, self.Trans_belief_obs2[i]).T
         Trans_belief2 = np.sum(self.Trans_belief_obs2, axis=0)
-        Tb2 = Trans_belief2 / np.tile(np.sum(Trans_belief2, 0), (self.nq, 1))
+        Tb2 = Trans_belief2 / np.tile(np.sum(Trans_belief2, 0), (self.nq, 1)) #marginalzied over observation
 
 
         # ACTION: do nothing
@@ -159,10 +159,13 @@ class twoboxColMDP:
         for i in range(NumCol):
             for j in range(NumCol):
                 self.Trans_hybrid_obs12[i, j, a0, :, :] = kronn(np.identity(self.nl),
-                                                             self.Trans_belief_obs1[i], Tr, self.Trans_belief_obs2[j]).T
-                self.Trans_hybrid_obs12[i, j, g0, :, :] = kronn(Tl0, self.Trans_belief_obs1[i], Tr, self.Trans_belief_obs2[j]).T
-                self.Trans_hybrid_obs12[i, j, g1, :, :] = kronn(Tl1, self.Trans_belief_obs1[i], Tr, self.Trans_belief_obs2[j]).T
-                self.Trans_hybrid_obs12[i, j, g2, :, :] = kronn(Tl2, self.Trans_belief_obs1[i], Tr, self.Trans_belief_obs2[j]).T
+                                                             self.den1[i], Tr, self.den2[j]).T
+                self.Trans_hybrid_obs12[i, j, g0, :, :] = kronn(Tl0, self.den1[i], Tr, self.den2[j]).T
+                self.Trans_hybrid_obs12[i, j, g1, :, :] = kronn(Tl1, self.den1[i], Tr, self.den2[j]).T
+                self.Trans_hybrid_obs12[i, j, g2, :, :] = kronn(Tl2, self.den1[i], Tr, self.den2[j]).T
+                self.Trans_hybrid_obs12[i, j, pb, :, :] = block_diag(kronn(self.den1[i], Tr, self.den2[j]),
+                                                                     np.kron(Tb1r, self.den2[j]),
+                                                                     np.kron(self.den1[i], Trb2)).T
 
 
     def solveMDP_op(self, epsilon = 0.001, niterations = 10000, initial_value=0):

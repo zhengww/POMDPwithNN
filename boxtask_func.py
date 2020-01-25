@@ -119,16 +119,18 @@ def beliefTransitionMatrixGaussianCol(p_appear, p_disappear, qmin, qmax, Ncol, n
                 #         bl, br)[0]
 
                 # Approximate the probability with Gaussian approxiamtion
-                q = i * dq + dq / 2
-                qq = j * dq + dq / 2
+                q = i * dq + dq / 2   #past belief(along columns, index with i)
+                qq = j * dq + dq / 2  # new belief(along rows, index with j)
 
                 def dist(x):
+                    # the distance of (x, gb(x)) to the center of each bin
                     return sqrt((q - x) ** 2 + (qq - gb(x, k1, k0, p_appear, p_disappear)) ** 2)
 
                 xopt[n, j, i], d[n, j, i] = optimize.fminbound(dist, 0, 1, full_output=1)[0:2]
                 den[n, j, i] = norm.pdf(d[n, j, i], mu, sigma)   # use this to approximate delta function with diffusion
 
-                height[n, j, i] = Obs_emis[n, :].dot(Trans_state).dot(np.array([1 - xopt[n, j, i], xopt[n, j, i]]))
+                height[n, j, i] = Obs_emis[n, :].dot(Trans_state).dot(np.array([1 - q, q]))
+                #height[n, j, i] = Obs_emis[n, :].dot(Trans_state).dot(np.array([1 - xopt[n, j, i], xopt[n, j, i]]))
 
         den[n] = den[n] / np.tile(np.sum(den[n], 0), (nq, 1))
         Trans_belief_obs_approx[n] = np.multiply(den[n], height[n])

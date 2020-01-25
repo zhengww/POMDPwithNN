@@ -12,7 +12,7 @@ class HMMtwoboxCol:
     def __init__(self, A, B, C, D1, D2, pi, Ncol):
         self.A = A
         self.B = B
-        self.C = C  # (Trans_hybrid_obs12)
+        self.C = C  # (den, belief transition given color and action)
         self.D1 = D1  # (box1, Obs_emis.dot(Trans_state, to calculate oberservation emission)
         self.D2 = D2  # (box2, Obs_emis.dot(Trans_state, to calculate oberservation emission)
         self.pi = pi
@@ -26,135 +26,135 @@ class HMMtwoboxCol:
         temp = np.reshape(np.array(range(self.Ss)), [1, self.Ss])
         return np.squeeze(l * self.S * self.R + tensorsum(temp * self.R * self.Ss, r * self.Ss + temp)).astype(int)
 
-    def forward(self, obs):
-        T = obs.shape[0]  # length of a sample sequence
-
-        act = obs[:, 0]  # action, two possible values: 0: doing nothing; 1: press button
-        rew = obs[:, 1]  # observable, two possible values: 0 : not have; 1: have
-        loc = obs[:, 2]  # location, three possible values
-        col1 = obs[:, 3]  # color of the 1st box
-        col2 = obs[:, 4]  # color of the 2nd box
-
-        alpha = np.zeros((self.S, T))  # initialize alpha value for each belief value
-        ## (0,0)(0,1)...(0,Ss-1)(1,0)(1,1)..(1,Ss-1)....
-        alpha[:, 0] = self.pi * self.B[act[0], self._states(rew[0], loc[0])]
-
-        belief_vector = np.array(
-            [np.arange(0, 1, 1 / self.Ss) + 1 / self.Ss / 2, 1 - np.arange(0, 1, 1 / self.Ss) - 1 / self.Ss / 2])
-
-        for t in range(1, T):
-            if act[t - 1] == pb and loc[t - 1] == 1 and col1[t] == self.Ncol:
-                obs1Emi = np.ones(self.Ss)
-                obs2Emi = self.D2[col2[t]].dot(belief_vector)
-                obsEmi = np.reshape(np.outer(obs1Emi, obs2Emi), self.S)
-                alpha[:, t] = np.dot(alpha[:, t - 1] * obsEmi, self.A[act[t - 1]][
-                    np.ix_(self._states(rew[t - 1], loc[t - 1]), self._states(rew[t], loc[t]))]) \
-                              * self.B[act[t], self._states(rew[t], loc[t])]
-            elif act[t - 1] == pb and loc[t - 1] == 2 and col2[t] == self.Ncol:
-                obs1Emi = self.D1[col1[t]].dot(belief_vector)
-                obs2Emi = np.ones(self.Ss)
-                obsEmi = np.reshape(np.outer(obs1Emi, obs2Emi), self.S)
-                alpha[:, t] = np.dot(alpha[:, t - 1] * obsEmi, self.A[act[t - 1]][
-                    np.ix_(self._states(rew[t - 1], loc[t - 1]), self._states(rew[t], loc[t]))]) \
-                              * self.B[act[t], self._states(rew[t], loc[t])]
-            else:
-                obs1Emi = self.D1[col1[t]].dot(belief_vector)
-                obs2Emi = self.D2[col2[t]].dot(belief_vector)
-                obsEmi = np.reshape(np.outer(obs1Emi, obs2Emi), self.S)
-                alpha[:, t] = np.dot(alpha[:, t - 1] * obsEmi,
-                                     self.C[col1[t]][col2[t]][act[t - 1]][
-                                         np.ix_(self._states(rew[t - 1], loc[t - 1]), self._states(rew[t], loc[t]))]) \
-                              * self.B[act[t], self._states(rew[t], loc[t])]
-
-        return alpha
-
-    def forward_act_est(self, obs):
-        T = obs.shape[0]  # length of a sample sequence
-
-        act = obs[:, 0]  # action, two possible values: 0: doing nothing; 1: press button
-        rew = obs[:, 1]  # observable, two possible values: 0 : not have; 1: have
-        loc = obs[:, 2]  # location, three possible values
-        col1 = obs[:, 3]  # color of the 1st box
-        col2 = obs[:, 4]  # color of the 2nd box
-
-        alpha = np.zeros((self.S, T))  # initialize alpha value for each belief value
-        ## (0,0)(0,1)...(0,Ss-1)(1,0)(1,1)..(1,Ss-1)....
-        alpha[:, 0] = self.pi * self.B[act[0], self._states(rew[0], loc[0])]
-
-        belief_vector = np.array(
-            [np.arange(0, 1, 1 / self.Ss) + 1 / self.Ss / 2, 1 - np.arange(0, 1, 1 / self.Ss) - 1 / self.Ss / 2])
-
-        for t in range(1, T):
-            if act[t - 1] == pb and loc[t - 1] == 1 and col1[t] == self.Ncol:
-                obs1Emi = np.ones(self.Ss)
-                obs2Emi = self.D2[col2[t]].dot(belief_vector)
-                obsEmi = np.reshape(np.outer(obs1Emi, obs2Emi), self.S)
-                alpha[:, t] = np.dot(alpha[:, t - 1] * obsEmi, self.A[act[t - 1]][
-                    np.ix_(self._states(rew[t - 1], loc[t - 1]), self._states(rew[t], loc[t]))]) \
-                              * self.B[act[t], self._states(rew[t], loc[t])]
-            elif act[t - 1] == pb and loc[t - 1] == 2 and col2[t] == self.Ncol:
-                obs1Emi = self.D1[col1[t]].dot(belief_vector)
-                obs2Emi = np.ones(self.Ss)
-                obsEmi = np.reshape(np.outer(obs1Emi, obs2Emi), self.S)
-                alpha[:, t] = np.dot(alpha[:, t - 1] * obsEmi, self.A[act[t - 1]][
-                    np.ix_(self._states(rew[t - 1], loc[t - 1]), self._states(rew[t], loc[t]))]) \
-                              * self.B[act[t], self._states(rew[t], loc[t])]
-            else:
-                obs1Emi = self.D1[col1[t]].dot(belief_vector)
-                obs2Emi = self.D2[col2[t]].dot(belief_vector)
-                obsEmi = np.reshape(np.outer(obs1Emi, obs2Emi), self.S)
-                alpha[:, t] = np.dot(alpha[:, t - 1] * obsEmi,
-                                     self.C[col1[t]][col2[t]][act[t - 1]][
-                                         np.ix_(self._states(rew[t - 1], loc[t - 1]), self._states(rew[t], loc[t]))]) \
-                              * self.B[act[t], self._states(rew[t], loc[t])]
-
-        return alpha
-
-    def backward(self, obs):
-        """
-        Backward path
-        :param obs: a sequence of observations
-        :return: predict future observations
-        """
-        T = obs.shape[0]  # length of a sample sequence
-
-        act = obs[:, 0]  # 0: doing nothing; 1: press button
-        rew = obs[:, 1]  # 0 : not have; 1: have
-        loc = obs[:, 2]  # location, three possible values
-        col1 = obs[:, 3]  # color of the 1st box
-        col2 = obs[:, 4]  # color of the 2nd box
-
-        beta = np.zeros((self.S, T))
-        beta[:, -1] = 1
-
-        belief_vector = np.array(
-            [np.arange(0, 1, 1 / self.Ss) + 1 / self.Ss / 2, 1 - np.arange(0, 1, 1 / self.Ss) - 1 / self.Ss / 2])
-
-        for t in reversed(range(T - 1)):
-            if act[t] == pb and loc[t] == 1 and col1[t + 1] == self.Ncol:
-                obs1Emi = np.ones(self.Ss)
-                obs2Emi = self.D2[col2[t + 1]].dot(belief_vector)
-                obsEmi = np.reshape(np.outer(obs1Emi, obs2Emi), self.S)
-                beta[:, t] = np.dot(self.A[act[t]][np.ix_(self._states(rew[t], loc[t]),
-                                                          self._states(rew[t + 1], loc[t + 1]))],
-                                    beta[:, t + 1] * self.B[act[t + 1], self._states(rew[t + 1], loc[t + 1])]) * obsEmi
-            elif act[t] == pb and loc[t] == 2 and col2[t + 1] == self.Ncol:
-                obs1Emi = self.D1[col1[t + 1]].dot(belief_vector)
-                obs2Emi = np.ones(self.Ss)
-                obsEmi = np.reshape(np.outer(obs1Emi, obs2Emi), self.S)
-                beta[:, t] = np.dot(self.A[act[t]][np.ix_(self._states(rew[t], loc[t]),
-                                                          self._states(rew[t + 1], loc[t + 1]))],
-                                    beta[:, t + 1] * self.B[act[t + 1], self._states(rew[t + 1], loc[t + 1])]) * obsEmi
-            else:
-                obs1Emi = self.D1[col1[t + 1]].dot(belief_vector)
-                obs2Emi = self.D2[col2[t + 1]].dot(belief_vector)
-                obsEmi = np.reshape(np.outer(obs1Emi, obs2Emi), self.S)
-                beta[:, t] = np.dot(self.C[col1[t + 1]][col2[t + 1]][act[t]][np.ix_(self._states(rew[t], loc[t]),
-                                                                                    self._states(rew[t + 1],
-                                                                                                 loc[t + 1]))],
-                                    beta[:, t + 1] * self.B[act[t + 1], self._states(rew[t + 1], loc[t + 1])]) * obsEmi
-
-        return beta
+    # def forward(self, obs):
+    #     T = obs.shape[0]  # length of a sample sequence
+    #
+    #     act = obs[:, 0]  # action, two possible values: 0: doing nothing; 1: press button
+    #     rew = obs[:, 1]  # observable, two possible values: 0 : not have; 1: have
+    #     loc = obs[:, 2]  # location, three possible values
+    #     col1 = obs[:, 3]  # color of the 1st box
+    #     col2 = obs[:, 4]  # color of the 2nd box
+    #
+    #     alpha = np.zeros((self.S, T))  # initialize alpha value for each belief value
+    #     ## (0,0)(0,1)...(0,Ss-1)(1,0)(1,1)..(1,Ss-1)....
+    #     alpha[:, 0] = self.pi * self.B[act[0], self._states(rew[0], loc[0])]
+    #
+    #     belief_vector = np.array(
+    #         [np.arange(0, 1, 1 / self.Ss) + 1 / self.Ss / 2, 1 - np.arange(0, 1, 1 / self.Ss) - 1 / self.Ss / 2])
+    #
+    #     for t in range(1, T):
+    #         if act[t - 1] == pb and loc[t - 1] == 1 and col1[t] == self.Ncol:
+    #             obs1Emi = np.ones(self.Ss)
+    #             obs2Emi = self.D2[col2[t]].dot(belief_vector)
+    #             obsEmi = np.reshape(np.outer(obs1Emi, obs2Emi), self.S)
+    #             alpha[:, t] = np.dot(alpha[:, t - 1] * obsEmi, self.A[act[t - 1]][
+    #                 np.ix_(self._states(rew[t - 1], loc[t - 1]), self._states(rew[t], loc[t]))]) \
+    #                           * self.B[act[t], self._states(rew[t], loc[t])]
+    #         elif act[t - 1] == pb and loc[t - 1] == 2 and col2[t] == self.Ncol:
+    #             obs1Emi = self.D1[col1[t]].dot(belief_vector)
+    #             obs2Emi = np.ones(self.Ss)
+    #             obsEmi = np.reshape(np.outer(obs1Emi, obs2Emi), self.S)
+    #             alpha[:, t] = np.dot(alpha[:, t - 1] * obsEmi, self.A[act[t - 1]][
+    #                 np.ix_(self._states(rew[t - 1], loc[t - 1]), self._states(rew[t], loc[t]))]) \
+    #                           * self.B[act[t], self._states(rew[t], loc[t])]
+    #         else:
+    #             obs1Emi = self.D1[col1[t]].dot(belief_vector)
+    #             obs2Emi = self.D2[col2[t]].dot(belief_vector)
+    #             obsEmi = np.reshape(np.outer(obs1Emi, obs2Emi), self.S)
+    #             alpha[:, t] = np.dot(alpha[:, t - 1] * obsEmi,
+    #                                  self.C[col1[t]][col2[t]][act[t - 1]][
+    #                                      np.ix_(self._states(rew[t - 1], loc[t - 1]), self._states(rew[t], loc[t]))]) \
+    #                           * self.B[act[t], self._states(rew[t], loc[t])]
+    #
+    #     return alpha
+    #
+    # def forward_act_est(self, obs):
+    #     T = obs.shape[0]  # length of a sample sequence
+    #
+    #     act = obs[:, 0]  # action, two possible values: 0: doing nothing; 1: press button
+    #     rew = obs[:, 1]  # observable, two possible values: 0 : not have; 1: have
+    #     loc = obs[:, 2]  # location, three possible values
+    #     col1 = obs[:, 3]  # color of the 1st box
+    #     col2 = obs[:, 4]  # color of the 2nd box
+    #
+    #     alpha = np.zeros((self.S, T))  # initialize alpha value for each belief value
+    #     ## (0,0)(0,1)...(0,Ss-1)(1,0)(1,1)..(1,Ss-1)....
+    #     alpha[:, 0] = self.pi * self.B[act[0], self._states(rew[0], loc[0])]
+    #
+    #     belief_vector = np.array(
+    #         [np.arange(0, 1, 1 / self.Ss) + 1 / self.Ss / 2, 1 - np.arange(0, 1, 1 / self.Ss) - 1 / self.Ss / 2])
+    #
+    #     for t in range(1, T):
+    #         if act[t - 1] == pb and loc[t - 1] == 1 and col1[t] == self.Ncol:
+    #             obs1Emi = np.ones(self.Ss)
+    #             obs2Emi = self.D2[col2[t]].dot(belief_vector)
+    #             obsEmi = np.reshape(np.outer(obs1Emi, obs2Emi), self.S)
+    #             alpha[:, t] = np.dot(alpha[:, t - 1] * obsEmi, self.A[act[t - 1]][
+    #                 np.ix_(self._states(rew[t - 1], loc[t - 1]), self._states(rew[t], loc[t]))]) \
+    #                           * self.B[act[t], self._states(rew[t], loc[t])]
+    #         elif act[t - 1] == pb and loc[t - 1] == 2 and col2[t] == self.Ncol:
+    #             obs1Emi = self.D1[col1[t]].dot(belief_vector)
+    #             obs2Emi = np.ones(self.Ss)
+    #             obsEmi = np.reshape(np.outer(obs1Emi, obs2Emi), self.S)
+    #             alpha[:, t] = np.dot(alpha[:, t - 1] * obsEmi, self.A[act[t - 1]][
+    #                 np.ix_(self._states(rew[t - 1], loc[t - 1]), self._states(rew[t], loc[t]))]) \
+    #                           * self.B[act[t], self._states(rew[t], loc[t])]
+    #         else:
+    #             obs1Emi = self.D1[col1[t]].dot(belief_vector)
+    #             obs2Emi = self.D2[col2[t]].dot(belief_vector)
+    #             obsEmi = np.reshape(np.outer(obs1Emi, obs2Emi), self.S)
+    #             alpha[:, t] = np.dot(alpha[:, t - 1] * obsEmi,
+    #                                  self.C[col1[t]][col2[t]][act[t - 1]][
+    #                                      np.ix_(self._states(rew[t - 1], loc[t - 1]), self._states(rew[t], loc[t]))]) \
+    #                           * self.B[act[t], self._states(rew[t], loc[t])]
+    #
+    #     return alpha
+    #
+    # def backward(self, obs):
+    #     """
+    #     Backward path
+    #     :param obs: a sequence of observations
+    #     :return: predict future observations
+    #     """
+    #     T = obs.shape[0]  # length of a sample sequence
+    #
+    #     act = obs[:, 0]  # 0: doing nothing; 1: press button
+    #     rew = obs[:, 1]  # 0 : not have; 1: have
+    #     loc = obs[:, 2]  # location, three possible values
+    #     col1 = obs[:, 3]  # color of the 1st box
+    #     col2 = obs[:, 4]  # color of the 2nd box
+    #
+    #     beta = np.zeros((self.S, T))
+    #     beta[:, -1] = 1
+    #
+    #     belief_vector = np.array(
+    #         [np.arange(0, 1, 1 / self.Ss) + 1 / self.Ss / 2, 1 - np.arange(0, 1, 1 / self.Ss) - 1 / self.Ss / 2])
+    #
+    #     for t in reversed(range(T - 1)):
+    #         if act[t] == pb and loc[t] == 1 and col1[t + 1] == self.Ncol:
+    #             obs1Emi = np.ones(self.Ss)
+    #             obs2Emi = self.D2[col2[t + 1]].dot(belief_vector)
+    #             obsEmi = np.reshape(np.outer(obs1Emi, obs2Emi), self.S)
+    #             beta[:, t] = np.dot(self.A[act[t]][np.ix_(self._states(rew[t], loc[t]),
+    #                                                       self._states(rew[t + 1], loc[t + 1]))],
+    #                                 beta[:, t + 1] * self.B[act[t + 1], self._states(rew[t + 1], loc[t + 1])]) * obsEmi
+    #         elif act[t] == pb and loc[t] == 2 and col2[t + 1] == self.Ncol:
+    #             obs1Emi = self.D1[col1[t + 1]].dot(belief_vector)
+    #             obs2Emi = np.ones(self.Ss)
+    #             obsEmi = np.reshape(np.outer(obs1Emi, obs2Emi), self.S)
+    #             beta[:, t] = np.dot(self.A[act[t]][np.ix_(self._states(rew[t], loc[t]),
+    #                                                       self._states(rew[t + 1], loc[t + 1]))],
+    #                                 beta[:, t + 1] * self.B[act[t + 1], self._states(rew[t + 1], loc[t + 1])]) * obsEmi
+    #         else:
+    #             obs1Emi = self.D1[col1[t + 1]].dot(belief_vector)
+    #             obs2Emi = self.D2[col2[t + 1]].dot(belief_vector)
+    #             obsEmi = np.reshape(np.outer(obs1Emi, obs2Emi), self.S)
+    #             beta[:, t] = np.dot(self.C[col1[t + 1]][col2[t + 1]][act[t]][np.ix_(self._states(rew[t], loc[t]),
+    #                                                                                 self._states(rew[t + 1],
+    #                                                                                              loc[t + 1]))],
+    #                                 beta[:, t + 1] * self.B[act[t + 1], self._states(rew[t + 1], loc[t + 1])]) * obsEmi
+    #
+    #     return beta
 
     def forward_scale(self, obs):
 
@@ -177,38 +177,26 @@ class HMMtwoboxCol:
             [np.arange(0, 1, 1 / self.Ss) + 1 / self.Ss / 2, 1 - np.arange(0, 1, 1 / self.Ss) - 1 / self.Ss / 2])
 
         for t in range(1, T):
-            if act[t - 1] == pb and loc[t - 1] == 1 and col1[t] == self.Ncol:
-                # obs1Emi = np.ones(self.Ss)
-                # obs2Emi = self.D2[col2[t]].dot(belief_vector)
-                # obsEmi = np.reshape(np.outer(obs1Emi, obs2Emi), self.S)
-                alpha[:, t] = np.dot(alpha[:, t - 1], self.A[act[t - 1]][
-                    np.ix_(self._states(rew[t - 1], loc[t - 1]), self._states(rew[t], loc[t]))]) \
-                              * self.B[act[t], self._states(rew[t], loc[t])]
-                # alpha[:,  t] = np.dot(alpha[:, t - 1] * obsEmi, self.A[act[t - 1]][
-                #     np.ix_(self._states(rew[t-1], loc[t-1]), self._states(rew[t], loc[t]))]) \
-                #            * self.B[act[t], self._states(rew[t], loc[t])]
-            elif act[t - 1] == pb and loc[t - 1] == 2 and col2[t] == self.Ncol:
-                # obs1Emi = self.D1[col1[t]].dot(belief_vector)
-                # obs2Emi = np.ones(self.Ss)
-                # obsEmi = np.reshape(np.outer(obs1Emi, obs2Emi), self.S)
-                alpha[:, t] = np.dot(alpha[:, t - 1], self.A[act[t - 1]][
-                    np.ix_(self._states(rew[t - 1], loc[t - 1]), self._states(rew[t], loc[t]))]) \
-                              * self.B[act[t], self._states(rew[t], loc[t])]
-                # alpha[:, t] = np.dot(alpha[:, t - 1] * obsEmi, self.A[act[t - 1]][
-                #     np.ix_(self._states(rew[t - 1], loc[t - 1]), self._states(rew[t], loc[t]))]) \
-                #               * self.B[act[t], self._states(rew[t], loc[t])]
-            else:
-                # obs1Emi = self.D1[col1[t]].dot(belief_vector)
-                # obs2Emi = self.D2[col2[t]].dot(belief_vector)
-                # obsEmi = np.reshape(np.outer(obs1Emi, obs2Emi), self.S)
-                # alpha[:, t] = np.dot(alpha[:, t - 1] * obsEmi,
-                #                      self.C[col1[t]][col2[t]][act[t - 1]][
-                #                          np.ix_(self._states(rew[t - 1], loc[t - 1]), self._states(rew[t], loc[t]))]) \
-                #               * self.B[act[t], self._states(rew[t], loc[t])]
-                alpha[:, t] = np.dot(alpha[:, t - 1],
-                                     self.C[col1[t]][col2[t]][act[t - 1]][
-                                         np.ix_(self._states(rew[t - 1], loc[t - 1]), self._states(rew[t], loc[t]))]) \
-                              * self.B[act[t], self._states(rew[t], loc[t])]
+            alpha[:, t] = np.dot(alpha[:, t - 1],
+                                 self.C[col1[t]][col2[t]][act[t - 1]][
+                                     np.ix_(self._states(rew[t - 1], loc[t - 1]), self._states(rew[t], loc[t]))]) \
+                          * self.B[act[t], self._states(rew[t], loc[t])]
+
+            # if act[t - 1] == pb and loc[t - 1] == 1 and col1[t] == self.Ncol:
+            #     alpha[:, t] = np.dot(alpha[:, t - 1], self.A[act[t - 1]][
+            #         np.ix_(self._states(rew[t - 1], loc[t - 1]), self._states(rew[t], loc[t]))]) \
+            #                   * self.B[act[t], self._states(rew[t], loc[t])]
+            # elif act[t - 1] == pb and loc[t - 1] == 2 and col2[t] == self.Ncol:
+            #
+            #     alpha[:, t] = np.dot(alpha[:, t - 1], self.A[act[t - 1]][
+            #         np.ix_(self._states(rew[t - 1], loc[t - 1]), self._states(rew[t], loc[t]))]) \
+            #                   * self.B[act[t], self._states(rew[t], loc[t])]
+            #
+            # else:
+            #     alpha[:, t] = np.dot(alpha[:, t - 1],
+            #                          self.C[col1[t]][col2[t]][act[t - 1]][
+            #                              np.ix_(self._states(rew[t - 1], loc[t - 1]), self._states(rew[t], loc[t]))]) \
+            #                   * self.B[act[t], self._states(rew[t], loc[t])]
 
             scale[t] = np.sum(alpha[:, t])
             alpha[:, t] = alpha[:, t] / scale[t]
@@ -231,39 +219,25 @@ class HMMtwoboxCol:
             [np.arange(0, 1, 1 / self.Ss) + 1 / self.Ss / 2, 1 - np.arange(0, 1, 1 / self.Ss) - 1 / self.Ss / 2])
 
         for t in reversed(range(T - 1)):
-            if act[t] == pb and loc[t] == 1 and col1[t + 1] == self.Ncol:
-                # obs1Emi = np.ones(self.Ss)
-                # obs2Emi = self.D2[col2[t+1]].dot(belief_vector)
-                # obsEmi = np.reshape(np.outer(obs1Emi, obs2Emi), self.S)
-                # beta[:, t] = np.dot(self.A[act[t]][np.ix_(self._states(rew[t], loc[t]),
-                #                                       self._states(rew[t+1], loc[t+1]))],
-                #                 beta[:, t+1] * self.B[act[t+1], self._states(rew[t+1], loc[t+1])]) * obsEmi
-                beta[:, t] = np.dot(self.A[act[t]][np.ix_(self._states(rew[t], loc[t]),
-                                                          self._states(rew[t + 1], loc[t + 1]))],
-                                    beta[:, t + 1] * self.B[act[t + 1], self._states(rew[t + 1], loc[t + 1])])
+            beta[:, t] = np.dot(self.C[col1[t + 1]][col2[t + 1]][act[t]][np.ix_(self._states(rew[t], loc[t]),
+                                                                                self._states(rew[t + 1],
+                                                                                             loc[t + 1]))],
+                                beta[:, t + 1] * self.B[act[t + 1], self._states(rew[t + 1], loc[t + 1])])
 
-            elif act[t] == pb and loc[t] == 2 and col2[t + 1] == self.Ncol:
-                # obs1Emi = self.D1[col1[t + 1]].dot(belief_vector)
-                # obs2Emi = np.ones(self.Ss)
-                # obsEmi = np.reshape(np.outer(obs1Emi, obs2Emi), self.S)
-                # beta[:, t] = np.dot(self.A[act[t]][np.ix_(self._states(rew[t], loc[t]),
-                #                                           self._states(rew[t + 1], loc[t + 1]))],
-                #                     beta[:, t + 1] * self.B[act[t + 1], self._states(rew[t + 1], loc[t + 1])]) * obsEmi
-                beta[:, t] = np.dot(self.A[act[t]][np.ix_(self._states(rew[t], loc[t]),
-                                                          self._states(rew[t + 1], loc[t + 1]))],
-                                    beta[:, t + 1] * self.B[act[t + 1], self._states(rew[t + 1], loc[t + 1])])
-            else:
-                # obs1Emi = self.D1[col1[t+1]].dot(belief_vector)
-                # obs2Emi = self.D2[col2[t+1]].dot(belief_vector)
-                # obsEmi = np.reshape(np.outer(obs1Emi, obs2Emi), self.S)
-                # beta[:, t] = np.dot(self.C[col1[t+1]][col2[t+1]][act[t]][np.ix_(self._states(rew[t], loc[t]),
-                #                                           self._states(rew[t + 1], loc[t + 1]))],
-                #                     beta[:, t + 1] * self.B[act[t + 1], self._states(rew[t + 1], loc[t + 1])]) * obsEmi
-
-                beta[:, t] = np.dot(self.C[col1[t + 1]][col2[t + 1]][act[t]][np.ix_(self._states(rew[t], loc[t]),
-                                                                                    self._states(rew[t + 1],
-                                                                                                 loc[t + 1]))],
-                                    beta[:, t + 1] * self.B[act[t + 1], self._states(rew[t + 1], loc[t + 1])])
+            # if act[t] == pb and loc[t] == 1 and col1[t + 1] == self.Ncol:
+            #     beta[:, t] = np.dot(self.A[act[t]][np.ix_(self._states(rew[t], loc[t]),
+            #                                               self._states(rew[t + 1], loc[t + 1]))],
+            #                         beta[:, t + 1] * self.B[act[t + 1], self._states(rew[t + 1], loc[t + 1])])
+            #
+            # elif act[t] == pb and loc[t] == 2 and col2[t + 1] == self.Ncol:
+            #     beta[:, t] = np.dot(self.A[act[t]][np.ix_(self._states(rew[t], loc[t]),
+            #                                               self._states(rew[t + 1], loc[t + 1]))],
+            #                         beta[:, t + 1] * self.B[act[t + 1], self._states(rew[t + 1], loc[t + 1])])
+            # else:
+            #     beta[:, t] = np.dot(self.C[col1[t + 1]][col2[t + 1]][act[t]][np.ix_(self._states(rew[t], loc[t]),
+            #                                                                         self._states(rew[t + 1],
+            #                                                                                      loc[t + 1]))],
+            #                         beta[:, t + 1] * self.B[act[t + 1], self._states(rew[t + 1], loc[t + 1])])
 
             beta[:, t] = beta[:, t] / scale[t + 1]
 
@@ -347,32 +321,19 @@ class HMMtwoboxCol:
             [np.arange(0, 1, 1 / self.Ss) + 1 / self.Ss / 2, 1 - np.arange(0, 1, 1 / self.Ss) - 1 / self.Ss / 2])
 
         for t in range(1, T):
-            if act[t - 1] == pb and loc[t - 1] == 1 and col1[t] == self.Ncol:
-                # obs1Emi = np.ones(self.Ss)
-                # obs2Emi = self.D2[col2[t]].dot(belief_vector)
-                # obsEmi = np.reshape(np.outer(obs1Emi, obs2Emi), self.S)
-                # lat_cond[t - 1] = np.diag(alpha_scaled[:, t - 1] * obsEmi).dot(
-                #     self.A[act[t - 1]][np.ix_(self._states(rew[t - 1], loc[t - 1]), self._states(rew[t], loc[t]))])
-                lat_cond[t - 1] = np.diag(alpha_scaled[:, t - 1]).dot(
-                    self.A[act[t - 1]][np.ix_(self._states(rew[t - 1], loc[t - 1]), self._states(rew[t], loc[t]))])
-            elif act[t - 1] == pb and loc[t - 1] == 2 and col2[t] == self.Ncol:
-                # obs1Emi = self.D1[col1[t]].dot(belief_vector)
-                # obs2Emi = np.ones(self.Ss)
-                # obsEmi = np.reshape(np.outer(obs1Emi, obs2Emi), self.S)
-                # lat_cond[t - 1] = np.diag(alpha_scaled[:, t - 1] * obsEmi).dot(
-                #     self.A[act[t - 1]][np.ix_(self._states(rew[t - 1], loc[t - 1]), self._states(rew[t], loc[t]))])
-                lat_cond[t - 1] = np.diag(alpha_scaled[:, t - 1]).dot(
-                    self.A[act[t - 1]][np.ix_(self._states(rew[t - 1], loc[t - 1]), self._states(rew[t], loc[t]))])
-            else:
-                # obs1Emi = self.D1[col1[t]].dot(belief_vector)
-                # obs2Emi = self.D2[col2[t]].dot(belief_vector)
-                # obsEmi = np.reshape(np.outer(obs1Emi, obs2Emi), self.S)
-                # lat_cond[t - 1] = np.diag(alpha_scaled[:, t - 1] * obsEmi).dot(
-                #     self.C[col1[t]][col2[t]][act[t - 1]][
-                #         np.ix_(self._states(rew[t - 1], loc[t - 1]), self._states(rew[t], loc[t]))])
-                lat_cond[t - 1] = np.diag(alpha_scaled[:, t - 1]).dot(
-                    self.C[col1[t]][col2[t]][act[t - 1]][
-                        np.ix_(self._states(rew[t - 1], loc[t - 1]), self._states(rew[t], loc[t]))])
+            lat_cond[t - 1] = np.diag(alpha_scaled[:, t - 1]).dot(
+                self.C[col1[t]][col2[t]][act[t - 1]][
+                    np.ix_(self._states(rew[t - 1], loc[t - 1]), self._states(rew[t], loc[t]))])
+            # if act[t - 1] == pb and loc[t - 1] == 1 and col1[t] == self.Ncol:
+            #     lat_cond[t - 1] = np.diag(alpha_scaled[:, t - 1]).dot(
+            #         self.A[act[t - 1]][np.ix_(self._states(rew[t - 1], loc[t - 1]), self._states(rew[t], loc[t]))])
+            # elif act[t - 1] == pb and loc[t - 1] == 2 and col2[t] == self.Ncol:
+            #     lat_cond[t - 1] = np.diag(alpha_scaled[:, t - 1]).dot(
+            #         self.A[act[t - 1]][np.ix_(self._states(rew[t - 1], loc[t - 1]), self._states(rew[t], loc[t]))])
+            # else:
+            #     lat_cond[t - 1] = np.diag(alpha_scaled[:, t - 1]).dot(
+            #         self.C[col1[t]][col2[t]][act[t - 1]][
+            #             np.ix_(self._states(rew[t - 1], loc[t - 1]), self._states(rew[t], loc[t]))])
 
             lat_cond[t - 1] = lat_cond[t - 1] / (
                     np.sum(lat_cond[t - 1], axis=0) + 1 * (np.sum(lat_cond[t - 1], axis=0) == 0))
@@ -422,13 +383,16 @@ class HMMtwoboxCol:
         # xi_delta = np.zeros((T, self.S, self.S))
 
         for t in range(T - 1):
-            if act[t] == pb and loc[t] == 1 and col1[t + 1] == self.Ncol:
-                Trantemp = Anew[act[t]][np.ix_(self._states(rew[t], loc[t]), self._states(rew[t + 1], loc[t + 1]))]
-            elif act[t] == pb and loc[t] == 2 and col2[t + 1] == self.Ncol:
-                Trantemp = Anew[act[t]][np.ix_(self._states(rew[t], loc[t]), self._states(rew[t + 1], loc[t + 1]))]
-            else:
-                Trantemp = Cnew[col1[t + 1]][col2[t + 1]][act[t]][
-                    np.ix_(self._states(rew[t], loc[t]), self._states(rew[t + 1], loc[t + 1]))]
+            Trantemp = Cnew[col1[t + 1]][col2[t + 1]][act[t]][
+                np.ix_(self._states(rew[t], loc[t]), self._states(rew[t + 1], loc[t + 1]))]
+            # if act[t] == pb and loc[t] == 1 and col1[t + 1] == self.Ncol:
+            #     Trantemp = Anew[act[t]][np.ix_(self._states(rew[t], loc[t]), self._states(rew[t + 1], loc[t + 1]))]
+            # elif act[t] == pb and loc[t] == 2 and col2[t + 1] == self.Ncol:
+            #     Trantemp = Anew[act[t]][np.ix_(self._states(rew[t], loc[t]), self._states(rew[t + 1], loc[t + 1]))]
+            # else:
+            #     Trantemp = Cnew[col1[t + 1]][col2[t + 1]][act[t]][
+            #         np.ix_(self._states(rew[t], loc[t]), self._states(rew[t + 1], loc[t + 1]))]
+
             Qaux2 += np.sum(np.log(Trantemp + 10 ** -13 * (Trantemp == 0)) * xi[t, :, :])
 
         for t in range(T):
