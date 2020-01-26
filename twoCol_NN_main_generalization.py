@@ -8,8 +8,8 @@ def main():
     generateNN = True
 
     if existingPOMDP:
-        datestring_start = '01242020(160104)'
-        datestring_end = '01242020(160259)'
+        datestring_start = '01252020(154652)'
+        datestring_end = '01252020(154909)'
 
         dataEnsemble_pkl_file = open(
             path + '/Results/' + datestring_start + '_' + datestring_end + '_dataEnsemble_twoboxCol' + '.pkl', 'rb')
@@ -38,15 +38,16 @@ def main():
     else:
         # parameters = [gamma1, gamma2, epsilon1, epsilon2,
         #              groom, travelCost, pushButtonCost, NumCol, qmin, qmax, temperature]
-        parametersAgent_set = [[0.15, 0.1, 0.1, 0.05, 0.2, 0.15, 0.3, 5, 0.45, 0.55, 0.1],
+        parametersAgent_set = [[0.15, 0.1, 0.1, 0.05, 0.2, 0.15, 0.3, 5, 0.3, 0.6, 0.1],
+                               [0.15, 0.1, 0.1, 0.05, 0.2, 0.15, 0.3, 5, 0.45, 0.55, 0.1],
                                [0.15, 0.1, 0.1, 0.05, 0.2, 0.2, 0.4, 5, 0.45, 0.55, 0.1],
                                [0.15, 0.1, 0.1, 0.05, 0.2, 0.15, 0.3, 5, 0.3, 0.6, 0.1],
                                [0.15, 0.1, 0.1, 0.05, 0.3, 0.12, 0.3, 5, 0.48, 0.52, 0.1],
                                [0.15, 0.1, 0.1, 0.05, 0.2, 0.4, 0.5, 5, 0.45, 0.55, 0.1],
                                [0.15, 0.1, 0.1, 0.05, 0.1, 0.3, 0.1, 5, 0.45, 0.55, 0.1],
-                               [0.15, 0.1, 0.1, 0.05, 0.2, 0.15, 0.3, 5, 0.3, 0.6, 0.1],
                                [0.15, 0.1, 0.1, 0.05, 0.2, 0.15, 0.3, 5, 0.48, 0.52, 0.1],
                                [0.12, 0.1, 0.08, 0.03, 0.2, 0.15, 0.3, 5, 0.45, 0.55, 0.1],
+                               [0.12, 0.1, 0.08, 0.03, 0.2, 0.15, 0.3, 5, 0.2, 0.8, 0.1],
                                [0.2, 0.3, 0.15, 0.15, 0.2, 0.15, 0.3, 5, 0.45, 0.55, 0.1],
                                [0.1, 0.1, 0.05, 0.05, 0.2, 0.15, 0.3, 5, 0.45, 0.55, 0.1],
                                [0.12, 0.08, 0.1, 0.05, 0.2, 0.15, 0.3, 5, 0.45, 0.55, 0.1],
@@ -120,7 +121,7 @@ def main():
     POMDP_params = [nq, na, nr, nl, Numcol, discount, parametersAgent_set]
 
     if trainedNN:
-        datestring_train =  '01242020(160314)'
+        datestring_train =  '01252020(154926)'
 
         nn_train_pkl_file = open(path + '/Results/' + datestring_train + '_data' +
                                  datestring_start + '_nn_train_params_twoboxCol_generalization.pkl', 'rb')
@@ -129,6 +130,8 @@ def main():
 
         training_params = nn_train_pkl['training_params']
         nn_params = nn_train_pkl['nn_params']
+        train_loss = nn_train_pkl['train_loss']
+
 
         input_size, hidden_size1, hidden_size2, output_size_act, num_layers = nn_params
         batch_size, train_ratio, NEpochs, lr = training_params
@@ -172,7 +175,7 @@ def main():
 
         nn_dict = {'nn_params': nn_params,
                    'training_params': training_params,
-                   'train)loss': train_loss
+                   'train_loss': train_loss
 
         }
         data_output = open(path + '/Results/' + datestring_train + '_data' +
@@ -184,7 +187,7 @@ def main():
     generate NN and POMDP behavior data with observation from NN, compare policy 
     """
     if generateNN:
-        test_N = 1
+        test_N = 5 #1
         test_T = 20000
         # parametersAgent_test = [0.15, 0.1, 0.1, 0.05, 0.2, 0.15, 0.3, 5, 0.48, 0.53, 0.1]
         # parametersExp_test = [0.2, 0.15, 0.05, 0.04, 0.45, 0.5]
@@ -202,23 +205,23 @@ def main():
 
         data_dict = agent_NNandPOMDP_NN(rnn, NNtest_params, nn_params, N=test_N, T=test_T)
 
-        para = np.array(parametersAgent_test)
-        obs_IRC = data_dict['observations'][0, :5000, :5].astype(int)  # NN agent behavior
-        twoboxCol = twoboxColMDP(discount, 3, nr, na, nl, para)
-        twoboxCol.setupMDP()
-        twoboxCol.solveMDP_sfm()
-        ThA = twoboxCol.ThA
-        policy = twoboxCol.softpolicy
-        pi = np.ones(nq * nq) / nq / nq  # initialize the estimation of the belief state
-        Trans_hybrid_obs12 = twoboxCol.Trans_hybrid_obs12
-        Obs_emis_trans1 = twoboxCol.Obs_emis_trans1
-        Obs_emis_trans2 = twoboxCol.Obs_emis_trans2
-        twoboxColHMM = HMMtwoboxCol(ThA, policy, Trans_hybrid_obs12, Obs_emis_trans1, Obs_emis_trans2, pi, 4)
-
-        Qaux2= twoboxColHMM.computeQaux(obs_IRC, ThA, policy, Trans_hybrid_obs12, Obs_emis_trans1,
-                                               Obs_emis_trans2)
-        Qaux3 = twoboxColHMM.latent_entr(obs_IRC)
-        print(Qaux2 + Qaux3)
+        # para = np.array(parametersAgent_test)
+        # obs_IRC = data_dict['observations'][0, :5000, :5].astype(int)  # NN agent behavior
+        # twoboxCol = twoboxColMDP(discount, 10, nr, na, nl, para)
+        # twoboxCol.setupMDP()
+        # twoboxCol.solveMDP_sfm()
+        # ThA = twoboxCol.ThA
+        # policy = twoboxCol.softpolicy
+        # pi = np.ones(nq * nq) / nq / nq  # initialize the estimation of the belief state
+        # Trans_hybrid_obs12 = twoboxCol.Trans_hybrid_obs12
+        # Obs_emis_trans1 = twoboxCol.Obs_emis_trans1
+        # Obs_emis_trans2 = twoboxCol.Obs_emis_trans2
+        # twoboxColHMM = HMMtwoboxCol(ThA, policy, Trans_hybrid_obs12, Obs_emis_trans1, Obs_emis_trans2, pi, 4)
+        #
+        # Qaux2= twoboxColHMM.computeQaux(obs_IRC, ThA, policy, Trans_hybrid_obs12, Obs_emis_trans1,
+        #                                        Obs_emis_trans2)
+        # Qaux3 = twoboxColHMM.latent_entr(obs_IRC)
+        # print(Qaux2 + Qaux3)
 
 
         datestring_NNagent = datetime.strftime(datetime.now(), '%m%d%Y(%H%M%S)')

@@ -280,13 +280,14 @@ def agent_NNandPOMDP_NN(model, POMDP_params, nn_params, N, T):
     for n in range(N):
         actionInitial = 0  # at time t = -1
         belief1Initial_POMDP = np.random.randint(nq)
-        rewInitial = 0 #np.random.randint(nr)
+        rewInitial = np.random.randint(nr)
         belief2Initial_POMDP = np.random.randint(nq)
         locationInitial = np.random.randint(nl)
 
         for t in range(T):
             if t == 0:
-                trueState1[n, t] = np.random.binomial(1, gamma1_e)
+
+                trueState1[n, t] = np.random.binomial(1, gamma1_e)   #box initial is NO FOOD
                 trueState2[n, t] = np.random.binomial(1, gamma2_e)
                 q1 = trueState1[n, t] * qmin_e + (1 - trueState1[n, t]) * qmax_e
                 color1[n, t] = np.random.binomial(Ncol, q1)  # color for box 1
@@ -302,69 +303,27 @@ def agent_NNandPOMDP_NN(model, POMDP_params, nn_params, N, T):
                      one_hot_encode(np.array([[color1[n, t]]]), Numcol, 1, 1),
                      one_hot_encode(np.array([[color2[n, t]]]), Numcol, 1, 1)), axis=2)  # cascade all the input
                 input_rnn = torch.tensor(input_rnn, dtype=torch.float)
-
                 para_batch = torch.tensor(np.array(parametersAgent), dtype=torch.float).unsqueeze(0)
-
                 with torch.no_grad():
                     out_act_batch, hidden_batch = model(input_rnn, para_batch) # policy
 
-                    actionDist[n, t] = out_act_batch[0, 0, :].numpy()
-                    #act_predicted = np.argmax(np.random.multinomial(1, out_act_batch[0, 0, :]))
-                    act_predicted = np.argmax(np.random.multinomial(1, actionDist[n, t]))
-
-                #belief1[n, t] = out_bel_batch[:, :, 0]
-                #belief2[n, t] = out_bel_batch[:, :, 1]
                 neural_response[n, t] = hidden_batch
+                actionDist[n, t] = out_act_batch[0, 0, :].numpy()
+                act_predicted = np.argmax(np.random.multinomial(1, actionDist[n, t]))
                 action[n, t] = act_predicted
 
                 # POMDP agent, driven by NN's action
                 belief1_POMDP[n, t], belief2_POMDP[n, t] = belief1Initial_POMDP, belief2Initial_POMDP
-                hybrid_POMDP[n, t] = location[n, t] * (nq * nr * nq) + belief1_POMDP[n, t] * (
-                        nr * nq) + reward[n, t] * nq + belief2_POMDP[n, t]  # hybrid state, for policy choosing
-                #action_POMDP[n, t] = action[n, t]
-                action_POMDP[n, t] = np.argmax(np.random.multinomial(1, actionDist_POMDP[n, t]))
-
-                actionDist_POMDP[n, t] = softpolicy.T[hybrid_POMDP[n, t]]
                 belief1Dist_POMDP[n, t, belief1_POMDP[n, t]] = 1
                 belief2Dist_POMDP[n, t, belief2_POMDP[n, t]] = 1
 
+                hybrid_POMDP[n, t] = location[n, t] * (nq * nr * nq) + belief1_POMDP[n, t] * (
+                        nr * nq) + reward[n, t] * nq + belief2_POMDP[n, t]  # hybrid state, for policy choosing
+                #action_POMDP[n, t] = action[n, t]
+                actionDist_POMDP[n, t] = softpolicy.T[hybrid_POMDP[n, t]]
+                action_POMDP[n, t] = np.argmax(np.random.multinomial(1, actionDist_POMDP[n, t]))
+
             else:
-                # if action[n, t - 1] == pb and location[n, t - 1] == 0:
-                #     action[n, t - 1] = a0
-                #
-                # if action_POMDP[n, t - 1] == pb and location[n, t - 1] == 0:
-                #     action_POMDP[n, t - 1] = a0
-
-                if action[n, t - 1] == pb and location[n, t - 1] == 0:
-
-                    #action[n, t - 1] = a0
-
-                    location[n, t] = 0
-                    reward[n, t] = 0
-
-                    if trueState1[n, t - 1] == 0:
-                        trueState1[n, t] = np.random.binomial(1, gamma1_e)
-                    else:
-                        trueState1[n, t] = 1 - np.random.binomial(1, epsilon1_e)
-
-                    if trueState2[n, t - 1] == 0:
-                        trueState2[n, t] = np.random.binomial(1, gamma2_e)
-                    else:
-                        trueState2[n, t] = 1 - np.random.binomial(1, epsilon2_e)
-
-                    q1 = trueState1[n, t] * qmin_e + (1 - trueState1[n, t]) * qmax_e
-                    color1[n, t] = np.random.binomial(Ncol, q1)  # color for box 1
-                    q2 = trueState2[n, t] * qmin_e + (1 - trueState2[n, t]) * qmax_e
-                    color2[n, t] = np.random.binomial(Ncol, q2)  # color for box 2
-
-                    belief1Dist_POMDP[n, t] = den1[color1[n, t], :, belief1_POMDP[n, t-1]]
-                    belief1_POMDP[n, t] = np.argmax(
-                        np.random.multinomial(1, den1[color1[n, t], :, belief1_POMDP[n, t-1]], size=1))
-                    belief2Dist_POMDP[n, t] = den2[color2[n, t], :, belief2_POMDP[n, t-1]]
-                    belief2_POMDP[n, t] = np.argmax(
-                        np.random.multinomial(1, den2[color2[n, t], :, belief2_POMDP[n, t-1]], size=1))
-
-
                 # variables evolve with dynamics
                 if action[n, t - 1] != pb:
                     # button not pressed, then true world dynamic is not affected by actions
@@ -384,11 +343,9 @@ def agent_NNandPOMDP_NN(model, POMDP_params, nn_params, N, T):
                     color2[n, t] = np.random.binomial(Ncol, q2)  # color for box 2
 
                     belief1Dist_POMDP[n, t] = den1[color1[n, t], :, belief1_POMDP[n, t-1]]
-                    belief1_POMDP[n, t] = np.argmax(
-                        np.random.multinomial(1, den1[color1[n, t], :, belief1_POMDP[n, t-1]], size=1))
+                    belief1_POMDP[n, t] = np.argmax(np.random.multinomial(1, belief1Dist_POMDP[n, t], size=1))
                     belief2Dist_POMDP[n, t] = den2[color2[n, t], :, belief2_POMDP[n, t-1]]
-                    belief2_POMDP[n, t] = np.argmax(
-                        np.random.multinomial(1, den2[color2[n, t], :, belief2_POMDP[n, t-1]], size=1))
+                    belief2_POMDP[n, t] = np.argmax(np.random.multinomial(1, belief2Dist_POMDP[n, t], size=1))
 
                     if reward[n, t - 1] == 0:
                         reward[n, t] = 0
@@ -414,19 +371,45 @@ def agent_NNandPOMDP_NN(model, POMDP_params, nn_params, N, T):
                 if action[n, t - 1] == pb:  # press button
                     location[n, t] = location[n, t - 1]  # pressing button does not change location
 
-                    # ### for pb action, wait for usual time and then pb  #############
-                    # if trueState1[n, t - 1] == 0:
-                    #     trueState1[n, t - 1] = np.random.binomial(1, gamma1_e)
-                    # else:
-                    #     trueState1[n, t - 1] = 1 - np.random.binomial(1, epsilon1_e)
-                    #
-                    # if trueState2[n, t - 1] == 0:
-                    #     trueState2[n, t - 1] = np.random.binomial(1, gamma2_e)
-                    # else:
-                    #     trueState2[n, t - 1] = 1 - np.random.binomial(1, epsilon2_e)
-                    # ### for pb action, wait for usual time and then pb  #############
+                    if location[n, t - 1] == 0:
+                        # pressing button at the center does not change anything
+                        # then wait an intermediate step (everything evolves as if doing nothing)
+
+                        reward[n, t] = 0
+
+                        if trueState1[n, t - 1] == 0:
+                            trueState1[n, t] = np.random.binomial(1, gamma1_e)
+                        else:
+                            trueState1[n, t] = 1 - np.random.binomial(1, epsilon1_e)
+
+                        if trueState2[n, t - 1] == 0:
+                            trueState2[n, t] = np.random.binomial(1, gamma2_e)
+                        else:
+                            trueState2[n, t] = 1 - np.random.binomial(1, epsilon2_e)
+
+                        q1 = trueState1[n, t] * qmin_e + (1 - trueState1[n, t]) * qmax_e
+                        color1[n, t] = np.random.binomial(Ncol, q1)  # color for box 1
+                        q2 = trueState2[n, t] * qmin_e + (1 - trueState2[n, t]) * qmax_e
+                        color2[n, t] = np.random.binomial(Ncol, q2)  # color for box 2
+
+                        belief1Dist_POMDP[n, t] = den1[color1[n, t], :, belief1_POMDP[n, t - 1]]
+                        belief1_POMDP[n, t] = np.argmax(np.random.multinomial(1, belief1Dist_POMDP[n, t] , size=1))
+                        belief2Dist_POMDP[n, t] = den2[color2[n, t], :, belief2_POMDP[n, t - 1]]
+                        belief2_POMDP[n, t] = np.argmax(np.random.multinomial(1, belief2Dist_POMDP[n, t], size=1))
 
                     if location[n, t] == 1:  # consider location 1 case
+
+                        if trueState1[n, t - 1] == 0:
+                            if reward[n, t - 1] == 0:  # reward depends on previous time frame
+                                reward[n, t] = 0
+                            else:
+                                reward[n, t] = np.random.binomial(1, 1 - rho)  # have not consumed food
+                        else:
+                            reward[n, t] = 1
+
+                        trueState1[n, t] = np.random.binomial(1, gamma1_e)
+                        q1 = trueState1[n, t] * qmin_e + (1 - trueState1[n, t]) * qmax_e
+                        color1[n, t] = np.random.binomial(Ncol, q1)
 
                         # belief on box 2 is independent on box 1
                         if trueState2[n, t - 1] == 0:
@@ -436,63 +419,38 @@ def agent_NNandPOMDP_NN(model, POMDP_params, nn_params, N, T):
                         q2 = trueState2[n, t] * qmin_e + (1 - trueState2[n, t]) * qmax_e
                         color2[n, t] = np.random.binomial(Ncol, q2)  # color for box 2
 
-                        belief2_POMDP[n, t] = np.argmax(
-                            np.random.multinomial(1, den2[color2[n, t], :, belief2_POMDP[n, t-1]],
-                                                  size=1))
+                        belief1Dist_POMDP[n, t] = den1[color1[n, t], :, 0]
+                        belief1_POMDP[n, t] = np.argmax(np.random.multinomial(1, belief1Dist_POMDP[n, t], size=1))
+                        belief2Dist_POMDP[n, t] = den2[color2[n, t], :, belief2_POMDP[n, t - 1]]
+                        belief2_POMDP[n, t] = np.argmax(np.random.multinomial(1, belief2Dist_POMDP[n, t], size=1))
 
-                        belief1_POMDP[n, t] = 0
+                    if location[n, t] == 2:  # consider location 2 case
 
-                        belief1Dist_POMDP[n, t, belief1_POMDP[n, t]] = 1
-                        belief2Dist_POMDP[n, t] = den2[color2[n, t], :, belief2_POMDP[n, t-1]]
-
-
-                        if trueState1[n, t - 1] == 0:
-                            trueState1[n, t] = 0
-                            color1[n, t] = Ncol
-
+                        if trueState2[n, t - 1] == 0:
                             if reward[n, t - 1] == 0:  # reward depends on previous time frame
                                 reward[n, t] = 0
                             else:
                                 reward[n, t] = np.random.binomial(1, 1 - rho)  # have not consumed food
                         else:
-                            trueState1[n, t] = 0  # if true world is one, pb resets it to zero
-                            color1[n, t] = Ncol
-
-                            reward[n, t] = 1
-
-                    if location[n, t] == 2:  # consider location 2 case
+                            reward[n, t] = 1  # give some reward
 
                         # belief on box 1 is independent on box 2
                         if trueState1[n, t - 1] == 0:
                             trueState1[n, t] = np.random.binomial(1, gamma1_e)
                         else:
                             trueState1[n, t] = 1 - np.random.binomial(1, epsilon1_e)
+
                         q1 = trueState1[n, t] * qmin_e + (1 - trueState1[n, t]) * qmax_e
                         color1[n, t] = np.random.binomial(Ncol, q1)  # color for box 2
 
-                        belief1_POMDP[n, t] = np.argmax(
-                            np.random.multinomial(1, den1[color1[n, t], :, belief1_POMDP[n, t-1]],
-                                                  size=1))
-                        belief2_POMDP[n, t] = 0
+                        trueState2[n, t] = np.random.binomial(1, gamma2_e)
+                        q2 = trueState2[n, t] * qmin_e + (1 - trueState2[n, t]) * qmax_e
+                        color2[n, t] = np.random.binomial(Ncol, q2)  # color for box 2
 
-                        belief2Dist_POMDP[n, t, belief2_POMDP[n, t]] = 1
-                        belief1Dist_POMDP[n, t] = den1[color1[n, t], :, belief1_POMDP[n, t-1]]
-
-                        if trueState2[n, t - 1] == 0:
-                            trueState2[n, t] = trueState2[n, t - 1]
-                            color2[n, t] = Ncol
-                            # if true world is zero, pb does not change real state
-                            # assume that the real state does not change during button press
-
-                            if reward[n, t - 1] == 0:  # reward depends on previous time frame
-                                reward[n, t] = 0
-                            else:
-                                reward[n, t] = np.random.binomial(1, 1 - rho)  # have not consumed food
-                        else:
-                            trueState2[n, t] = 0  # if true world is one, pb resets it to zero
-                            color2[n, t] = Ncol
-
-                            reward[n, t] = 1  # give some reward
+                        belief1Dist_POMDP[n, t] = den1[color1[n, t], :, belief1_POMDP[n, t - 1]]
+                        belief1_POMDP[n, t] = np.argmax(np.random.multinomial(1, belief1Dist_POMDP[n, t], size=1))
+                        belief2Dist_POMDP[n, t] = den2[color2[n, t], :, 0]
+                        belief2_POMDP[n, t] = np.argmax(np.random.multinomial(1, belief2Dist_POMDP[n, t], size=1))
 
                 input_rnn = np.concatenate(
                     (one_hot_encode(np.array([[action[n, t - 1]]]), na, 1, 1),
@@ -501,28 +459,18 @@ def agent_NNandPOMDP_NN(model, POMDP_params, nn_params, N, T):
                      one_hot_encode(np.array([[color1[n, t]]]), Numcol, 1, 1),
                      one_hot_encode(np.array([[color2[n, t]]]), Numcol, 1, 1)), axis=2)  # cascade all the input
                 input_rnn = torch.tensor(input_rnn, dtype=torch.float)
-
                 para_batch = torch.tensor(np.array(parametersAgent), dtype=torch.float).unsqueeze(0)
-
                 with torch.no_grad():
                     out_act_batch, hidden_batch = model(input_rnn, para_batch, hidden_batch)  # policy
 
-                    actionDist[n, t] = out_act_batch[0, 0, :].numpy()
-                    #act_predicted = np.argmax(np.random.multinomial(1, out_act_batch[0, 0, :]))
-                    act_predicted = np.argmax(np.random.multinomial(1, actionDist[n, t]))
-
-                #print(actionDist[n, t])
-
-                #belief1[n, t] = out_bel_batch[:, :, 0]
-                #belief2[n, t] = out_bel_batch[:, :, 1]
                 neural_response[n, t] = hidden_batch
+                actionDist[n, t] = out_act_batch[0, 0, :].numpy()
+                act_predicted = np.argmax(np.random.multinomial(1, actionDist[n, t]))
                 action[n, t] = act_predicted
 
                 hybrid_POMDP[n, t] = location[n, t] * (nq * nr * nq) + belief1_POMDP[n, t] * (
                         nr * nq) + reward[n, t] * nq + belief2_POMDP[n, t]  # hybrid state, for policy choosing
                 actionDist_POMDP[n, t] = softpolicy.T[hybrid_POMDP[n, t]]
-                #action_POMDP[n, t] = action[n, t]
-
                 action_POMDP[n, t] = np.argmax(np.random.multinomial(1, actionDist_POMDP[n, t]))
 
     obsN = np.dstack([action, reward, location, color1, color2, actionDist])  # includes the action and the observable states
