@@ -2,25 +2,12 @@ from twoCol_NN_train import *
 from twoCol_NN_agent import *
 
 def main():
-    # parametersAgent = [0.2, 0.18, 0.1, 0.08, 0.2, 0.15, 0.3, 5, 0.45, 0.55, 0.1]
-    # parametersExp = [0.15, 0.1, 0.05, 0.04, 0.4, 0.6]
-    #
-    # nq = 10
-    # nl = 3
-    # nr = 2
-    # na = 5
-    # sample_length = 1000
-    # sample_number = 1
-    # Numcol = parametersAgent[7]
-    #
-    # obsN, latN, truthN, datestring = twoboxColGenerate(parametersAgent, parametersExp, sample_length, sample_number,
-    #                                                    nq, nr, nl)
-    #
 
     existingPOMDP = True
     trainedNN = False
 
     if existingPOMDP:
+        # If there are already teacher POMDP data, use them to train the neural network; otherwise, generate them
         datestring_data = '08132019(0013)'
         dataN_pkl_file = open(path + '/Results/oldResults/' + datestring_data + '_dataN_twoboxCol.pkl', 'rb')
         dataN_pkl = pickle.load(dataN_pkl_file)
@@ -83,6 +70,7 @@ def main():
     POMDP_params = [nq, na, nr, nl, Numcol, discount, parametersAgent, parametersExp]
 
     if trainedNN:
+        # If the NN is already trained, load the parameters; otherwise, train it.
         datestring_train = '08132019(0014)'
 
         nn_train_pkl_file = open(path + '/Results/' + datestring_train + '_data' + datestring_data + '_nn_train_params_twoboxCol.pkl', 'rb')

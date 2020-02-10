@@ -36,24 +36,6 @@ class twoboxColMDP:
                 R: reward function
                     shape: (# of action) * (# of states, old state) * (# of states, new state)
         """
-        # beta = self.parameters[0]     # available food dropped back into box after button press
-        # gamma1 = self.parameters[1]   # reward becomes available in box 1
-        # gamma2 = self.parameters[2]   # reward becomes available in box 2
-        # delta = self.parameters[3]    # animal trips, doesn't go to target location
-        # direct = self.parameters[4]   # animal goes right to target, skipping location 0
-        # epsilon1 = self.parameters[5] # available food disappears from box 1
-        # epsilon2 = self.parameters[6] # available food disappears from box 2
-        # rho = self.parameters[7]      # food in mouth is consumed
-        # # eta = .0001                 # random diffusion of belief
-        #
-        # # State rewards
-        # Reward = self.parameters[8]   # reward per time step with food in mouth
-        # Groom = self.parameters[9]     # location 0 reward
-        #
-        # # Action costs
-        # travelCost = self.parameters[10]
-        # pushButtonCost = self.parameters[11]
-
 
         beta = 0     # available food dropped back into box after button press
         gamma1 = self.parameters[0]   # reward becomes available in box 1
@@ -89,25 +71,13 @@ class twoboxColMDP:
 
         # setup single-variable transition matrices
         Tr = np.array([[1, rho], [0, 1 - rho]])  # consume reward
-        # Tb1 = beliefTransitionMatrix(gamma1, epsilon1, nq, eta)
-        # Tb2 = beliefTransitionMatrix(gamma2, epsilon2, nq, eta)
-        #Tb1 = beliefTransitionMatrixGaussian(gamma1, epsilon1, self.nq, sigmaTb)
-        #Tb2 = beliefTransitionMatrixGaussian(gamma2, epsilon2, self.nq, sigmaTb)
-        self.Trans_belief_obs1, self.Obs_emis_trans1, self.den1 = beliefTransitionMatrixGaussianCol(gamma1, epsilon1, qmin, qmax, Ncol,
-                                                                                                    self.nq, sigma = 1 / self.nq / 3)
-
-        #self.Trans_hybrid_obs1 = np.zeros(((NumCol, self.n, self.n)))
-        #for i in range(NumCol):
-        #    self.Trans_hybrid_obs1[i] = kronn(Tr, self.Trans_belief_obs1[i]).T
-        Trans_belief1 = np.sum(self.Trans_belief_obs1, axis=0)
+        self.Trans_belief_obs1, self.Obs_emis_trans1, self.den1 = beliefTransitionMatrixGaussianCol(gamma1, epsilon1, qmin, qmax, Ncol,self.nq, sigma = 1 / self.nq / 3)
+        Trans_belief1 = np.sum(self.Trans_belief_obs1, axis=0)      # belief transitions, it is  marginalized over observations
         Tb1 = Trans_belief1 / np.tile(np.sum(Trans_belief1, 0), (self.nq, 1))
 
 
         self.Trans_belief_obs2, self.Obs_emis_trans2, self.den2 = beliefTransitionMatrixGaussianCol(gamma2, epsilon2, qmin, qmax, Ncol, self.nq, sigma = 1 / self.nq / 3)
-        #self.Trans_hybrid_obs2 = np.zeros(((NumCol, self.n, self.n)))
-        #for i in range(NumCol):
-        #    self.Trans_hybrid_obs2[i] = kronn(Tr, self.Trans_belief_obs2[i]).T
-        Trans_belief2 = np.sum(self.Trans_belief_obs2, axis=0)
+        Trans_belief2 = np.sum(self.Trans_belief_obs2, axis=0)      # belief transitions, it is  marginalized over observations
         Tb2 = Trans_belief2 / np.tile(np.sum(Trans_belief2, 0), (self.nq, 1)) #marginalzied over observation
 
 
@@ -421,22 +391,6 @@ class twoboxColMDPdata(twoboxColMDP):
     def dataGenerate_sfm(self):
 
         ## Parameters
-        # beta = self.parameters[0]     # available food dropped back into box after button press
-        # gamma1 = self.parameters[1]   # reward becomes available in box 1
-        # gamma2 = self.parameters[2]   # reward becomes available in box 2
-        # delta = self.parameters[3]    # animal trips, doesn't go to target location
-        # direct = self.parameters[4]   # animal goes right to target, skipping location 0
-        # epsilon1 = self.parameters[5] # available food disappears from box 1
-        # epsilon2 = self.parameters[6] # available food disappears from box 2
-        # rho = self.parameters[7]      # food in mouth is consumed
-        # # eta = .0001                 # random diffusion of belief
-        # # State rewards
-        # Reward = self.parameters[8]   # reward per time step with food in mouth
-        # Groom = self.parameters[9]     # location 0 reward
-        # # Action costs
-        # travelCost = self.parameters[10]
-        # pushButtonCost = self.parameters[11]
-
         beta = 0     # available food dropped back into box after button press
         gamma1 = self.parameters[0]   # reward becomes available in box 1
         gamma2 = self.parameters[1]   # reward becomes available in box 2
@@ -579,7 +533,8 @@ class twoboxColMDPdata(twoboxColMDP):
                             else:
                                 self.reward[n, t] = 1  # give some reward
 
-                            self.trueState1[n, t] = np.random.binomial(1, gamma1_e)
+                            self.trueState1[n, t] = np.random.binomial(1, gamma1_e)  # after pressing button, the box is empty,
+                            # then during a intermediate waiting time, it follows the dynamic
                             q1 = self.trueState1[n, t] * qmin_e + (1 - self.trueState1[n, t]) * qmax_e
                             self.color1[n, t] = np.random.binomial(Ncol, q1)  # color for box 1
 
@@ -591,7 +546,8 @@ class twoboxColMDPdata(twoboxColMDP):
                             q2 = self.trueState2[n, t] * qmin_e + (1 - self.trueState2[n, t]) * qmax_e
                             self.color2[n, t] = np.random.binomial(Ncol, q2)  # color for box 2
 
-                            self.belief1Dist[n, t] = self.den1[self.color1[n, t], :, 0]
+                            self.belief1Dist[n, t] = self.den1[self.color1[n, t], :, 0]   # after pressing button, the food is gone,
+                            # belief is reset to zero. Based on whatever color it is generated after the intermediate waiting time, belief is updated.
                             self.belief1[n, t] = np.argmax(np.random.multinomial(1, self.belief1Dist[n, t], size=1))
                             self.belief2Dist[n, t] = self.den2[self.color2[n, t], :, self.belief2[n, t - 1]]
                             self.belief2[n, t] = np.argmax(np.random.multinomial(1, self.belief2Dist[n, t], size=1))
@@ -630,223 +586,223 @@ class twoboxColMDPdata(twoboxColMDP):
                     self.action[n, t] = self._chooseAction(self.softpolicy.T[self.hybrid[n, t]])
                     self.actionDist[n, t] = self.softpolicy.T[self.hybrid[n, t]]
 
-    def dataGenerate_offpolicy(self, actionSel):
-
-        ## Parameters
-        # beta = self.parameters[0]     # available food dropped back into box after button press
-        # gamma1 = self.parameters[1]   # reward becomes available in box 1
-        # gamma2 = self.parameters[2]   # reward becomes available in box 2
-        # delta = self.parameters[3]    # animal trips, doesn't go to target location
-        # direct = self.parameters[4]   # animal goes right to target, skipping location 0
-        # epsilon1 = self.parameters[5] # available food disappears from box 1
-        # epsilon2 = self.parameters[6] # available food disappears from box 2
-        # rho = self.parameters[7]      # food in mouth is consumed
-        # # eta = .0001                 # random diffusion of belief
-        # # State rewards
-        # Reward = self.parameters[8]   # reward per time step with food in mouth
-        # Groom = self.parameters[9]     # location 0 reward
-        # # Action costs
-        # travelCost = self.parameters[10]
-        # pushButtonCost = self.parameters[11]
-
-        beta = 0     # available food dropped back into box after button press
-        gamma1 = self.parameters[0]   # reward becomes available in box 1
-        gamma2 = self.parameters[1]   # reward becomes available in box 2
-        delta = 0    # animal trips, doesn't go to target location
-        direct = 0   # animal goes right to target, skipping location 0
-        epsilon1 = self.parameters[2] # available food disappears from box 1
-        epsilon2 = self.parameters[3] # available food disappears from box 2
-        rho = 1      # food in mouth is consumed
-        # State rewards
-        Reward = 1   # reward per time step with food in mouth
-        Groom = self.parameters[4]     # location 0 reward
-        # Action costs
-        travelCost = self.parameters[5]
-        pushButtonCost = self.parameters[6]
-
-        NumCol = np.rint(self.parameters[7]).astype(int)   # number of colors
-        Ncol = NumCol - 1  # max value of color
-        qmin = self.parameters[8]
-        qmax = self.parameters[9]
-
-        gamma1_e = self.parametersExp[0]
-        gamma2_e = self.parametersExp[1]
-        epsilon1_e = self.parametersExp[2]
-        epsilon2_e = self.parametersExp[3]
-        qmin_e = self.parametersExp[4]
-        qmax_e = self.parametersExp[5]
-
-        ## Generate data
-        for n in range(self.sampleNum):
-            belief1Initial, rewInitial, belief2Initial, locationInitial = \
-                np.random.randint(self.nq), np.random.randint(self.nr), np.random.randint(self.nq), np.random.randint(
-                    self.nl)
-
-            for t in range(self.sampleTime):
-                if t == 0:
-                    # Initialize the true world states, sensory information and latent states
-                    self.trueState1[n, t] = np.random.binomial(1, gamma1_e)
-                    self.trueState2[n, t] = np.random.binomial(1, gamma2_e)
-                    q1 = self.trueState1[n, t] * qmin_e + (1 - self.trueState1[n, t]) * qmax_e
-                    self.color1[n, t] = np.random.binomial(Ncol, q1)  # color for box 1
-                    q2 = self.trueState2[n, t] * qmin_e + (1 - self.trueState2[n, t]) * qmax_e
-                    self.color2[n, t] = np.random.binomial(Ncol, q2)  # color for box 2
-
-                    self.location[n, t], self.belief1[n, t], self.reward[n, t], self.belief2[
-                        n, t] = locationInitial, belief1Initial, rewInitial, belief2Initial
-                    self.hybrid[n, t] = self.location[n, t] * (self.nq * self.nr * self.nq) + self.belief1[n, t] * (self.nr * self.nq) + \
-                                        self.reward[n, t] * self.nq + self.belief2[n, t]  # hybrid state, for policy choosing
-                    #self.action[n, t] = self._chooseAction(self.softpolicy.T[self.hybrid[n, t]])
-                    self.action[n, t] = self._chooseAction(actionSel)    #Generate actions based on a particular distribution
-
-                    self.actionDist[n, t] = self.softpolicy.T[self.hybrid[n, t]]
-                    self.belief1Dist[n, t, self.belief1[n, t]] = 1
-                    self.belief2Dist[n, t, self.belief2[n, t]] = 1
-
-
-                else:
-                    if self.action[n, t - 1] == pb and self.location[n, t - 1] == 0:
-                        self.action[n, t - 1] = a0  # cannot press button at location 0
-
-                    # variables evolve with dynamics
-                    if self.action[n, t - 1] != pb:
-                        # button not pressed, then true world dynamic is not affected by actions
-                        if self.trueState1[n, t - 1] == 0:
-                            self.trueState1[n, t] = np.random.binomial(1, gamma1_e)
-                        else:
-                            self.trueState1[n, t] = 1 - np.random.binomial(1, epsilon1_e)
-
-                        if self.trueState2[n, t - 1] == 0:
-                            self.trueState2[n, t] = np.random.binomial(1, gamma2_e)
-                        else:
-                            self.trueState2[n, t] = 1 - np.random.binomial(1, epsilon2_e)
-
-                        q1 = self.trueState1[n, t] * qmin_e + (1 - self.trueState1[n, t]) * qmax_e
-                        self.color1[n, t] = np.random.binomial(Ncol, q1)  # color for box 1
-                        q2 = self.trueState2[n, t] * qmin_e + (1 - self.trueState2[n, t]) * qmax_e
-                        self.color2[n, t] = np.random.binomial(Ncol, q2)  # color for box 2
-
-                        self.belief1[n, t] = np.argmax(
-                            np.random.multinomial(1, self.den1[self.color1[n, t], :, self.belief1[n, t - 1]], size=1))
-
-                        self.belief2[n, t] = np.argmax(
-                            np.random.multinomial(1, self.den2[self.color2[n, t], :, self.belief2[n, t - 1]], size=1))
-
-                        self.belief1Dist[n, t] = self.den1[self.color1[n, t], :, self.belief1[n, t - 1]]
-                        self.belief2Dist[n, t] = self.den2[self.color2[n, t], :, self.belief2[n, t - 1]]
-
-                        if self.reward[n, t - 1] == 0:
-                            self.reward[n, t] = 0
-                        else:
-                            self.reward[n, t] = np.random.binomial(1, 1 - rho)
-
-                        if self.action[n, t - 1] == a0:
-                            self.location[n, t] = self.location[n, t - 1]
-                        if self.action[n, t - 1] == g0:
-                            Tl0 = np.array(
-                                [[1, 1 - delta, 1 - delta], [0, delta, 0],
-                                 [0, 0, delta]])  # go to loc 0 (with error of delta)
-                            self.location[n, t] = np.argmax(np.random.multinomial(1, Tl0[:, self.location[n, t-1]], size  = 1))
-                        if self.action[n, t - 1] == g1:
-                            Tl1 = np.array([[delta, 0, 1 - delta - direct], [1 - delta, 1, direct],
-                                            [0, 0, delta]])  # go to box 1 (with error of delta)
-                            self.location[n, t] = np.argmax(np.random.multinomial(1, Tl1[:, self.location[n, t - 1]], size  = 1))
-                        if self.action[n, t - 1] == g2:
-                            Tl2 = np.array([[delta, 1 - delta - direct, 0], [0, delta, 0],
-                                            [1 - delta, direct, 1]])  # go to box 2 (with error of delta)
-                            self.location[n, t] = np.argmax(np.random.multinomial(1, Tl2[:, self.location[n, t - 1]], size  = 1))
-
-
-                    if self.action[n, t - 1] == pb:  # press button
-                        self.location[n, t] = self.location[n, t - 1]  # pressing button does not change location
-
-                        ### for pb action, wait for usual time and then pb  #############
-                        if self.trueState1[n, t - 1] == 0:
-                            self.trueState1[n, t - 1] = np.random.binomial(1, gamma1_e)
-                        else:
-                            self.trueState1[n, t - 1] = 1 - np.random.binomial(1, epsilon1_e)
-
-                        if self.trueState2[n, t - 1] == 0:
-                            self.trueState2[n, t - 1] = np.random.binomial(1, gamma2_e)
-                        else:
-                            self.trueState2[n, t - 1] = 1 - np.random.binomial(1, epsilon2_e)
-                        ### for pb action, wait for usual time and then pb  #############
-
-
-                        if self.location[n, t] == 1:  # consider location 1 case
-
-                            # belief on box 2 is independent on box 1
-                            if self.trueState2[n, t - 1] == 0:
-                                self.trueState2[n, t] = np.random.binomial(1, gamma2_e)
-                            else:
-                                self.trueState2[n, t] = 1 - np.random.binomial(1, epsilon2_e)
-                            q2 = self.trueState2[n, t] * qmin_e + (1 - self.trueState2[n, t]) * qmax_e
-                            self.color2[n, t] = np.random.binomial(Ncol, q2)  # color for box 2
-                            self.belief2[n, t] = np.argmax(
-                                np.random.multinomial(1, self.den2[self.color2[n, t], :, self.belief2[n, t - 1]],
-                                                      size=1))
-                            self.belief2Dist[n, t] = self.den2[self.color2[n, t], :, self.belief2[n, t - 1]]
-
-                            if self.trueState1[n, t - 1] == 0:
-                                self.trueState1[n, t] = 0
-                                self.color1[n, t] = Ncol
-                                # if true world is zero, pb does not change real state
-                                # assume that the real state does not change during button press
-                                self.belief1[n, t] = 0  # after open the box, the animal is sure that there is no food there
-                                self.belief1Dist[n, t, self.belief1[n, t]] = 1
-
-                                if self.reward[n, t - 1] == 0:  # reward depends on previous time frame
-                                    self.reward[n, t] = 0
-                                else:
-                                    self.reward[n, t] = np.random.binomial(1, 1 - rho)  # have not consumed food
-                            else:
-                                self.trueState1[n, t] = 0  # if true world is one, pb resets it to zero
-                                self.color1[n, t] = Ncol
-                                self.belief1[n, t] = 0
-                                self.belief1Dist[n, t, self.belief1[n, t]] = 1
-
-                                self.reward[n, t] = 1  # give some reward
-
-                        if self.location[n, t] == 2:  # consider location 2 case
-
-                            # belief on box 1 is independent on box 2
-                            if self.trueState1[n, t - 1] == 0:
-                                self.trueState1[n, t] = np.random.binomial(1, gamma1_e)
-                            else:
-                                self.trueState1[n, t] = 1 - np.random.binomial(1, epsilon1_e)
-                            q1 = self.trueState1[n, t] * qmin_e + (1 - self.trueState1[n, t]) * qmax_e
-                            self.color1[n, t] = np.random.binomial(Ncol, q1)  # color for box 2
-                            self.belief1[n, t] = np.argmax(
-                                np.random.multinomial(1, self.den1[self.color1[n, t], :, self.belief1[n, t - 1]],
-                                                      size=1))
-                            self.belief1Dist[n, t] = self.den1[self.color1[n, t], :, self.belief1[n, t - 1]]
-
-                            if self.trueState2[n, t - 1] == 0:
-                                self.trueState2[n, t] = self.trueState2[n, t - 1]
-                                self.color2[n, t] = Ncol
-                                # if true world is zero, pb does not change real state
-                                # assume that the real state does not change during button press
-                                self.belief2[n, t] = 0  # after open the box, the animal is sure that there is no food there
-                                self.belief2Dist[n, t, self.belief2[n, t]] = 1
-
-                                if self.reward[n, t - 1] == 0:  # reward depends on previous time frame
-                                    self.reward[n, t] = 0
-                                else:
-                                    self.reward[n, t] = np.random.binomial(1, 1 - rho)  # have not consumed food
-                            else:
-                                self.trueState2[n, t] = 0  # if true world is one, pb resets it to zero
-                                self.color2[n, t] = Ncol
-                                self.belief2[n, t] = 0
-                                self.belief2Dist[n, t, self.belief2[n, t]] = 1
-
-                                self.reward[n, t] = 1  # give some reward
-
-                    self.hybrid[n, t] = self.location[n, t] * (self.nq * self.nr * self.nq) + self.belief1[n, t] * (self.nr * self.nq) \
-                                        + self.reward[n, t] * self.nq + self.belief2[n, t]  # hybrid state, for policy choosing
-                    #print self.location[n, t], self.belief1[n, t], self.reward[n, t], self.belief2[n, t], self.hybrid[n, t], self.action[n, t-1]
-                    #self.action[n, t] = self._chooseAction(self.softpolicy.T[self.hybrid[n, t]])
-                    self.action[n, t] = self._chooseAction(actionSel)
-                    self.actionDist[n, t] = self.softpolicy.T[self.hybrid[n, t]]
+    # def dataGenerate_offpolicy(self, actionSel):
+    #
+    #     ## Parameters
+    #     # beta = self.parameters[0]     # available food dropped back into box after button press
+    #     # gamma1 = self.parameters[1]   # reward becomes available in box 1
+    #     # gamma2 = self.parameters[2]   # reward becomes available in box 2
+    #     # delta = self.parameters[3]    # animal trips, doesn't go to target location
+    #     # direct = self.parameters[4]   # animal goes right to target, skipping location 0
+    #     # epsilon1 = self.parameters[5] # available food disappears from box 1
+    #     # epsilon2 = self.parameters[6] # available food disappears from box 2
+    #     # rho = self.parameters[7]      # food in mouth is consumed
+    #     # # eta = .0001                 # random diffusion of belief
+    #     # # State rewards
+    #     # Reward = self.parameters[8]   # reward per time step with food in mouth
+    #     # Groom = self.parameters[9]     # location 0 reward
+    #     # # Action costs
+    #     # travelCost = self.parameters[10]
+    #     # pushButtonCost = self.parameters[11]
+    #
+    #     beta = 0     # available food dropped back into box after button press
+    #     gamma1 = self.parameters[0]   # reward becomes available in box 1
+    #     gamma2 = self.parameters[1]   # reward becomes available in box 2
+    #     delta = 0    # animal trips, doesn't go to target location
+    #     direct = 0   # animal goes right to target, skipping location 0
+    #     epsilon1 = self.parameters[2] # available food disappears from box 1
+    #     epsilon2 = self.parameters[3] # available food disappears from box 2
+    #     rho = 1      # food in mouth is consumed
+    #     # State rewards
+    #     Reward = 1   # reward per time step with food in mouth
+    #     Groom = self.parameters[4]     # location 0 reward
+    #     # Action costs
+    #     travelCost = self.parameters[5]
+    #     pushButtonCost = self.parameters[6]
+    #
+    #     NumCol = np.rint(self.parameters[7]).astype(int)   # number of colors
+    #     Ncol = NumCol - 1  # max value of color
+    #     qmin = self.parameters[8]
+    #     qmax = self.parameters[9]
+    #
+    #     gamma1_e = self.parametersExp[0]
+    #     gamma2_e = self.parametersExp[1]
+    #     epsilon1_e = self.parametersExp[2]
+    #     epsilon2_e = self.parametersExp[3]
+    #     qmin_e = self.parametersExp[4]
+    #     qmax_e = self.parametersExp[5]
+    #
+    #     ## Generate data
+    #     for n in range(self.sampleNum):
+    #         belief1Initial, rewInitial, belief2Initial, locationInitial = \
+    #             np.random.randint(self.nq), np.random.randint(self.nr), np.random.randint(self.nq), np.random.randint(
+    #                 self.nl)
+    #
+    #         for t in range(self.sampleTime):
+    #             if t == 0:
+    #                 # Initialize the true world states, sensory information and latent states
+    #                 self.trueState1[n, t] = np.random.binomial(1, gamma1_e)
+    #                 self.trueState2[n, t] = np.random.binomial(1, gamma2_e)
+    #                 q1 = self.trueState1[n, t] * qmin_e + (1 - self.trueState1[n, t]) * qmax_e
+    #                 self.color1[n, t] = np.random.binomial(Ncol, q1)  # color for box 1
+    #                 q2 = self.trueState2[n, t] * qmin_e + (1 - self.trueState2[n, t]) * qmax_e
+    #                 self.color2[n, t] = np.random.binomial(Ncol, q2)  # color for box 2
+    #
+    #                 self.location[n, t], self.belief1[n, t], self.reward[n, t], self.belief2[
+    #                     n, t] = locationInitial, belief1Initial, rewInitial, belief2Initial
+    #                 self.hybrid[n, t] = self.location[n, t] * (self.nq * self.nr * self.nq) + self.belief1[n, t] * (self.nr * self.nq) + \
+    #                                     self.reward[n, t] * self.nq + self.belief2[n, t]  # hybrid state, for policy choosing
+    #                 #self.action[n, t] = self._chooseAction(self.softpolicy.T[self.hybrid[n, t]])
+    #                 self.action[n, t] = self._chooseAction(actionSel)    #Generate actions based on a particular distribution
+    #
+    #                 self.actionDist[n, t] = self.softpolicy.T[self.hybrid[n, t]]
+    #                 self.belief1Dist[n, t, self.belief1[n, t]] = 1
+    #                 self.belief2Dist[n, t, self.belief2[n, t]] = 1
+    #
+    #
+    #             else:
+    #                 if self.action[n, t - 1] == pb and self.location[n, t - 1] == 0:
+    #                     self.action[n, t - 1] = a0  # cannot press button at location 0
+    #
+    #                 # variables evolve with dynamics
+    #                 if self.action[n, t - 1] != pb:
+    #                     # button not pressed, then true world dynamic is not affected by actions
+    #                     if self.trueState1[n, t - 1] == 0:
+    #                         self.trueState1[n, t] = np.random.binomial(1, gamma1_e)
+    #                     else:
+    #                         self.trueState1[n, t] = 1 - np.random.binomial(1, epsilon1_e)
+    #
+    #                     if self.trueState2[n, t - 1] == 0:
+    #                         self.trueState2[n, t] = np.random.binomial(1, gamma2_e)
+    #                     else:
+    #                         self.trueState2[n, t] = 1 - np.random.binomial(1, epsilon2_e)
+    #
+    #                     q1 = self.trueState1[n, t] * qmin_e + (1 - self.trueState1[n, t]) * qmax_e
+    #                     self.color1[n, t] = np.random.binomial(Ncol, q1)  # color for box 1
+    #                     q2 = self.trueState2[n, t] * qmin_e + (1 - self.trueState2[n, t]) * qmax_e
+    #                     self.color2[n, t] = np.random.binomial(Ncol, q2)  # color for box 2
+    #
+    #                     self.belief1[n, t] = np.argmax(
+    #                         np.random.multinomial(1, self.den1[self.color1[n, t], :, self.belief1[n, t - 1]], size=1))
+    #
+    #                     self.belief2[n, t] = np.argmax(
+    #                         np.random.multinomial(1, self.den2[self.color2[n, t], :, self.belief2[n, t - 1]], size=1))
+    #
+    #                     self.belief1Dist[n, t] = self.den1[self.color1[n, t], :, self.belief1[n, t - 1]]
+    #                     self.belief2Dist[n, t] = self.den2[self.color2[n, t], :, self.belief2[n, t - 1]]
+    #
+    #                     if self.reward[n, t - 1] == 0:
+    #                         self.reward[n, t] = 0
+    #                     else:
+    #                         self.reward[n, t] = np.random.binomial(1, 1 - rho)
+    #
+    #                     if self.action[n, t - 1] == a0:
+    #                         self.location[n, t] = self.location[n, t - 1]
+    #                     if self.action[n, t - 1] == g0:
+    #                         Tl0 = np.array(
+    #                             [[1, 1 - delta, 1 - delta], [0, delta, 0],
+    #                              [0, 0, delta]])  # go to loc 0 (with error of delta)
+    #                         self.location[n, t] = np.argmax(np.random.multinomial(1, Tl0[:, self.location[n, t-1]], size  = 1))
+    #                     if self.action[n, t - 1] == g1:
+    #                         Tl1 = np.array([[delta, 0, 1 - delta - direct], [1 - delta, 1, direct],
+    #                                         [0, 0, delta]])  # go to box 1 (with error of delta)
+    #                         self.location[n, t] = np.argmax(np.random.multinomial(1, Tl1[:, self.location[n, t - 1]], size  = 1))
+    #                     if self.action[n, t - 1] == g2:
+    #                         Tl2 = np.array([[delta, 1 - delta - direct, 0], [0, delta, 0],
+    #                                         [1 - delta, direct, 1]])  # go to box 2 (with error of delta)
+    #                         self.location[n, t] = np.argmax(np.random.multinomial(1, Tl2[:, self.location[n, t - 1]], size  = 1))
+    #
+    #
+    #                 if self.action[n, t - 1] == pb:  # press button
+    #                     self.location[n, t] = self.location[n, t - 1]  # pressing button does not change location
+    #
+    #                     ### for pb action, wait for usual time and then pb  #############
+    #                     if self.trueState1[n, t - 1] == 0:
+    #                         self.trueState1[n, t - 1] = np.random.binomial(1, gamma1_e)
+    #                     else:
+    #                         self.trueState1[n, t - 1] = 1 - np.random.binomial(1, epsilon1_e)
+    #
+    #                     if self.trueState2[n, t - 1] == 0:
+    #                         self.trueState2[n, t - 1] = np.random.binomial(1, gamma2_e)
+    #                     else:
+    #                         self.trueState2[n, t - 1] = 1 - np.random.binomial(1, epsilon2_e)
+    #                     ### for pb action, wait for usual time and then pb  #############
+    #
+    #
+    #                     if self.location[n, t] == 1:  # consider location 1 case
+    #
+    #                         # belief on box 2 is independent on box 1
+    #                         if self.trueState2[n, t - 1] == 0:
+    #                             self.trueState2[n, t] = np.random.binomial(1, gamma2_e)
+    #                         else:
+    #                             self.trueState2[n, t] = 1 - np.random.binomial(1, epsilon2_e)
+    #                         q2 = self.trueState2[n, t] * qmin_e + (1 - self.trueState2[n, t]) * qmax_e
+    #                         self.color2[n, t] = np.random.binomial(Ncol, q2)  # color for box 2
+    #                         self.belief2[n, t] = np.argmax(
+    #                             np.random.multinomial(1, self.den2[self.color2[n, t], :, self.belief2[n, t - 1]],
+    #                                                   size=1))
+    #                         self.belief2Dist[n, t] = self.den2[self.color2[n, t], :, self.belief2[n, t - 1]]
+    #
+    #                         if self.trueState1[n, t - 1] == 0:
+    #                             self.trueState1[n, t] = 0
+    #                             self.color1[n, t] = Ncol
+    #                             # if true world is zero, pb does not change real state
+    #                             # assume that the real state does not change during button press
+    #                             self.belief1[n, t] = 0  # after open the box, the animal is sure that there is no food there
+    #                             self.belief1Dist[n, t, self.belief1[n, t]] = 1
+    #
+    #                             if self.reward[n, t - 1] == 0:  # reward depends on previous time frame
+    #                                 self.reward[n, t] = 0
+    #                             else:
+    #                                 self.reward[n, t] = np.random.binomial(1, 1 - rho)  # have not consumed food
+    #                         else:
+    #                             self.trueState1[n, t] = 0  # if true world is one, pb resets it to zero
+    #                             self.color1[n, t] = Ncol
+    #                             self.belief1[n, t] = 0
+    #                             self.belief1Dist[n, t, self.belief1[n, t]] = 1
+    #
+    #                             self.reward[n, t] = 1  # give some reward
+    #
+    #                     if self.location[n, t] == 2:  # consider location 2 case
+    #
+    #                         # belief on box 1 is independent on box 2
+    #                         if self.trueState1[n, t - 1] == 0:
+    #                             self.trueState1[n, t] = np.random.binomial(1, gamma1_e)
+    #                         else:
+    #                             self.trueState1[n, t] = 1 - np.random.binomial(1, epsilon1_e)
+    #                         q1 = self.trueState1[n, t] * qmin_e + (1 - self.trueState1[n, t]) * qmax_e
+    #                         self.color1[n, t] = np.random.binomial(Ncol, q1)  # color for box 2
+    #                         self.belief1[n, t] = np.argmax(
+    #                             np.random.multinomial(1, self.den1[self.color1[n, t], :, self.belief1[n, t - 1]],
+    #                                                   size=1))
+    #                         self.belief1Dist[n, t] = self.den1[self.color1[n, t], :, self.belief1[n, t - 1]]
+    #
+    #                         if self.trueState2[n, t - 1] == 0:
+    #                             self.trueState2[n, t] = self.trueState2[n, t - 1]
+    #                             self.color2[n, t] = Ncol
+    #                             # if true world is zero, pb does not change real state
+    #                             # assume that the real state does not change during button press
+    #                             self.belief2[n, t] = 0  # after open the box, the animal is sure that there is no food there
+    #                             self.belief2Dist[n, t, self.belief2[n, t]] = 1
+    #
+    #                             if self.reward[n, t - 1] == 0:  # reward depends on previous time frame
+    #                                 self.reward[n, t] = 0
+    #                             else:
+    #                                 self.reward[n, t] = np.random.binomial(1, 1 - rho)  # have not consumed food
+    #                         else:
+    #                             self.trueState2[n, t] = 0  # if true world is one, pb resets it to zero
+    #                             self.color2[n, t] = Ncol
+    #                             self.belief2[n, t] = 0
+    #                             self.belief2Dist[n, t, self.belief2[n, t]] = 1
+    #
+    #                             self.reward[n, t] = 1  # give some reward
+    #
+    #                 self.hybrid[n, t] = self.location[n, t] * (self.nq * self.nr * self.nq) + self.belief1[n, t] * (self.nr * self.nq) \
+    #                                     + self.reward[n, t] * self.nq + self.belief2[n, t]  # hybrid state, for policy choosing
+    #                 #print self.location[n, t], self.belief1[n, t], self.reward[n, t], self.belief2[n, t], self.hybrid[n, t], self.action[n, t-1]
+    #                 #self.action[n, t] = self._chooseAction(self.softpolicy.T[self.hybrid[n, t]])
+    #                 self.action[n, t] = self._chooseAction(actionSel)
+    #                 self.actionDist[n, t] = self.softpolicy.T[self.hybrid[n, t]]
 
 
     def _chooseAction(self, pvec):

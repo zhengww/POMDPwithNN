@@ -16,12 +16,8 @@ def kronn(*args):
 
 def beliefTransitionMatrix(p_appear, p_disappear, nq, w):
     """
-    create transition matrix between nq belief states q to q'
-    :param p_appear:
-    :param p_disappear:
-    :param nq:
-    :param w: width of diffusive noise
-    :return:
+    create transition matrix between nq belief states q to q' without color observation
+    diffusion is added
     """
     Tqqq = np.zeros((nq, nq))
     dq = 1 / nq
@@ -53,6 +49,10 @@ def beliefTransitionMatrix(p_appear, p_disappear, nq, w):
 
 
 def beliefTransitionMatrixGaussian(p_appear, p_disappear, nq, sigma = 0.1):
+    """
+    create transition matrix between nq belief states q to q' without color observation
+    use Gaussian approximation for diffusion
+    """
     mu = 0
 
     d = np.zeros((nq, nq))
@@ -73,6 +73,10 @@ def beliefTransitionMatrixGaussian(p_appear, p_disappear, nq, sigma = 0.1):
     return Tb
 
 def beliefTransitionMatrixGaussianCol(p_appear, p_disappear, qmin, qmax, Ncol, nq, sigma):
+    """
+    create transition matrix between nq belief states q to q' WITH color observation
+    use Gaussian approximation for diffusion
+    """
     def gb(x, k1, k0, p_appear, p_disappear):
         a = 1 - p_disappear - p_appear
         return (k1 * a * x + k1 * p_appear) / ((k1 - k0) * a * x + k1 * p_appear + k0 * (1 - p_appear))
@@ -103,21 +107,6 @@ def beliefTransitionMatrixGaussianCol(p_appear, p_disappear, qmin, qmax, Ncol, n
 
         for i in range(nq):
             for j in range(nq):
-                # xmin = dq * i
-                # xmax = dq * (i + 1)
-                # ymin = dq * j
-                # ymax = dq * (j + 1)
-                #
-                # bl = max(gbinv(ymin, k1, k0, p_appear, p_disappear), xmin)
-                # br = min(gbinv(ymax, k1, k0, p_appear, p_disappear), xmax)
-                #
-                # if bl > br:
-                #     Trans_belief_obs[n, j, i] = 0
-                # else:
-                #     Trans_belief_obs[n, j, i] = \
-                #     quad(lambda x: Obs_emis[n, :].dot(Trans_state).dot(np.array([1 - x, x])),
-                #         bl, br)[0]
-
                 # Approximate the probability with Gaussian approxiamtion
                 q = i * dq + dq / 2   #past belief(along columns, index with i)
                 qq = j * dq + dq / 2  # new belief(along rows, index with j)
@@ -173,39 +162,6 @@ def beliefTransitionMatrixGaussianDerivative(p_appear, p_disappear, nq, sigma=0.
     Tb = Trrr / np.tile(np.sum(Trrr, 0), (nq, 1))
 
     return dTbdgamma, dTbdepsilon
-
-
-'''
-##############################################################################################
-The im2col and col2im functions referred to the code on
-http://fhs1.bitbucket.org/glasslab_cluster/_modules/glasslab_cluster/utils.html
-'''
-''' (My algorithm)
-def _im2col_distinct(A, size):
-    dx, dy = size
-    assert A.shape[0] % dx == 0
-    assert A.shape[1] % dy == 0
-
-    ncol = (A.shape[0]//dx) * (A.shape[1]//dy)
-    R = np.empty((ncol, dx * dy), dtype = A.dtype)
-    k = 0
-    for j in range(0, A.shape[1], dy):
-        for i in range(0, A.shape[0], dx):
-            R[k, :] = A[i : i + dx, j : j + dy].ravel(order = 'F')
-            k += 1
-    return R.T
-
-def _im2col_sliding(A, size):
-    dx, dy = size
-    xsz = A.shape[0] - dx + 1
-    ysz = A.shape[1] - dy + 1
-    R = np.empty((xsz * ysz, dx * dy), dtype = A.dtype)
-
-    for j in range(ysz):
-        for i in range(xsz):
-            R[j * xsz + i, :] = A[i : i + dx, j : j + dy].ravel(order = 'F')
-    return R.T
-'''
 
 
 def _im2col_distinct(A, size):

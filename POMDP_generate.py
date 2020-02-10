@@ -9,6 +9,9 @@ path = os.getcwd()
 
 def twoboxColGenerate(parameters, parametersExp, sample_length, sample_number, nq, nr = 2, nl = 3, na = 5,
                       discount = 0.99):
+    """
+    Generate data of the teacher POMDPS
+    """
 
     datestring = datetime.strftime(datetime.now(), '%m%d%Y(%H%M%S)')  # current time used to set file name
 

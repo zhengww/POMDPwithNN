@@ -102,16 +102,25 @@ def data_preprocessing_notebook( idx,
             the recoding processs needs causal relationship between (bb_prev, bb_now)
             so I remove the edge data of every new game episode
             """
+
             bbelief = dataN_pkl['beliefs'] # behavior belief, 200x500x2, and here 2 means belief for two boxes.
             bb = (bbelief[:, :, :2] + 0.5) / 10
             observations = dataN_pkl['observations']
             obs = observations[:, :, :5]  # action, reward, location, color 1, color 2
 
             # because of this, start from 1 in the for loop below
-            bb_prev = bb[0,:-1,:]
-            bb_now = bb[0,1:,:]
-            obs_prev = obs[0,:-1,:]
-            obs_now = obs[0,1:,:]
+            bb_prev = bb[idx,:-1,:]
+            bb_now = bb[idx,1:,:]
+            obs_prev = obs[idx,:-1,:]
+            obs_now = obs[idx,1:,:]
+
+            # action = obs[:, :-1, 0]  # actions
+            # a = action.reshape(-1, 1)  # one action
+            # # neural_response = dataN_pkl['neural_response']  # neural response
+            # # r = neural_response.reshape(-1, NEURAL_NUM)  # NEURAL_NUM neurons
+            # location = obs[:, :-1, 2].reshape(-1, 1)  # location
+            #
+            #
 
             for i in range(1, bbelief.shape[0]): # start from 1 on purpose
                 #print(i)
@@ -199,6 +208,8 @@ def data_preprocessing_notebook( idx,
             policy = obs[:, :, 5:].squeeze()  #policy
             policy_POMDP = dataN_pkl_agent['POMDP_agent_dist'][idx:idx+1, :, :5].squeeze()
             belief_POMDP = dataN_pkl_agent['POMDP_agent'][idx:idx+1, :, 1:3].squeeze()
+
+            #a[np.where(np.logical_and(a == 4 & location == 0) == True)[0]] = 0
 
             # decoding_data = np.concatenate((bb, a, location), axis=1)
             # decoding_data_df = DataFrame(decoding_data, columns=['box1 belief', 'box2 belief', 'action', 'location'])
