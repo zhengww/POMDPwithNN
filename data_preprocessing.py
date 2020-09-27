@@ -14,9 +14,9 @@ all output data also will be located in data folder.
 
 
 POMDP = False # True if you use pomdp data. False if you use neural data (data structure is different)
-ENCODING = False # build encoding data, the encoding data alwasy read neural data even though POMDP is True
-DECODING = True
-RECODING = True
+ENCODING = True # build encoding data, the encoding data alwasy read neural data even though POMDP is True
+DECODING = False
+RECODING = False
 NEURAL_NUM = 100
 
 if ENCODING:

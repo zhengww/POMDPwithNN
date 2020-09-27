@@ -189,11 +189,12 @@ def main():
     generate NN and POMDP behavior data with observation from NN, compare policy 
     """
     if generateNN:
-        test_N = 5
-        test_T = 20000
+        test_N = 1   #5
+        test_T = 1000 #20000
         # parametersAgent_test = [0.15, 0.1, 0.1, 0.05, 0.2, 0.15, 0.3, 5, 0.48, 0.53, 0.1]
         # parametersExp_test = [0.2, 0.15, 0.05, 0.04, 0.45, 0.5]
 
+        # A good example of parameters to make the experiment rich
         parametersAgent_test = [0.17, 0.1, 0.1, 0.03, 0.2, 0.15, 0.3, 5, 0.45, 0.55, 0.1]
         parametersExp_test = [0.2, 0.12, 0.05, 0.07, 0.4, 0.6]
 
@@ -210,6 +211,34 @@ def main():
 
         data_dict = agent_NNandPOMDP_NN(rnn, NNtest_params, nn_params, N=test_N, T=test_T)
 
+        ###########################
+        # check performance of neural network
+        idx = 0
+        training_policy_show = list(np.arange(50, 81))
+        fig_NNtraining, ax = plt.subplots(2, 1, figsize=(8, 4))
+        ax[0].imshow(data_dict['POMDP_agent_dist'][idx, training_policy_show, :na].T, vmin=0, vmax=1)
+        ax[0].set_ylabel('action', fontsize=20, color='green')
+        ax[0].set_title('target POMDP', fontsize=20, color='green')
+        ax[0].set_xticks([])
+        ax[0].set_yticks([])
+        im = ax[1].imshow(data_dict['observations'][idx, training_policy_show, -na:].T, vmin=0, vmax=1)
+        ax[1].set_xlabel('time', fontsize=16)
+        ax[1].set_ylabel('action', fontsize=20, color='green')
+        ax[1].set_title('neural network', fontsize=20, color='green')
+        ax[1].set_xticks([0, 30])
+        ax[1].set_yticks([])
+        cbar_ax = fig_NNtraining.add_axes([0.99, 0.193, 0.015, 0.625])
+        cb = plt.colorbar(im, cax=cbar_ax)
+        for j, lab in enumerate(['0', '1']):
+            cb.ax.text(2.4, j, lab, ha='center', va='center', fontsize=16)
+        cb.ax.get_yaxis().set_ticks([])
+        cb.ax.get_yaxis().labelpad = 10
+        cb.ax.set_ylabel('policy $\pi(a_t|b_t)$', rotation=90, fontsize=16, color='green')
+        plt.show()
+
+        fig_NNtraining.savefig('NNtraining_gen.pdf', format='pdf', bbox_inches='tight')
+
+        ###########################
         ############################################################################################################
         ## test the behavior data of the NN
         obs = data_dict['observations'][0, :, :5].astype(int)
